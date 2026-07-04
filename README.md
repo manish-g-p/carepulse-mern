@@ -1,19 +1,21 @@
-# CarePulse — MERN Edition
+# CarePulse
 
-A MongoDB + Express + React + Node.js rebuild of the original Next.js/Appwrite CarePulse healthcare app. Same three flows as the original: patient onboarding, appointment booking, and an admin dashboard for scheduling/cancelling appointments.
+A full-stack healthcare patient management system built with the MERN stack (MongoDB, Express, React, Node.js). CarePulse lets patients register, book appointments, and track their requests, while an admin dashboard gives staff a real-time view of scheduled, pending, and cancelled appointments.
 
-## What changed from the original
+## Features
 
-| Concern | Original | This version |
-|---|---|---|
-| Frontend | Next.js (App Router) | React 18 + Vite + React Router |
-| Backend | Appwrite (BaaS) | Express REST API (Node.js) |
-| Database | Appwrite Databases | MongoDB (Mongoose) |
-| File storage | Appwrite Storage | Local disk via multer (`backend/uploads`) |
-| Auth | Appwrite users + phone-OTP passkey | Lightweight patient identity (generated `userId`, no password) + JWT-protected admin routes |
-| SMS reminders | Twilio via Appwrite Messaging | Not included (dropped per project scope) |
+- **Patient onboarding** — quick start form (name, email, phone) followed by a detailed intake form covering personal info, medical history, insurance, and ID verification with document upload.
+- **Appointment booking** — patients pick a physician, date/time, and reason, then get a confirmation screen with their request details.
+- **Admin dashboard** — passkey-protected view with live stat cards (scheduled/pending/cancelled counts) and a searchable appointments table where staff can schedule or cancel requests.
+- **Secure file uploads** — ID documents are handled server-side with Multer and served back to the app.
+- **JWT-based admin auth** — the admin passkey exchanges for a signed JWT used to authorize all admin-only API routes.
 
-Patients aren't required to log in — same as the original, they're identified by a generated `userId` carried in the URL. The admin dashboard is protected by a passkey (`ADMIN_PASSKEY` env var) that now issues a real JWT instead of a client-side-only check.
+## Tech stack
+
+- **Frontend**: React 18, Vite, React Router, React Hook Form + Zod for validation, Axios
+- **Backend**: Node.js, Express, MongoDB with Mongoose
+- **Auth**: JWT for admin sessions
+- **File handling**: Multer (local disk storage)
 
 ## Project structure
 
@@ -42,7 +44,7 @@ Env vars (`backend/.env`):
 - `PORT` — API port (default 5000)
 - `MONGO_URI` — MongoDB connection string
 - `JWT_SECRET` — any long random string, used to sign admin session tokens
-- `ADMIN_PASSKEY` — the 6-digit (or any) code used to unlock `/admin`
+- `ADMIN_PASSKEY` — the code used to unlock `/admin`
 - `CLIENT_ORIGIN` — the frontend URL, for CORS (default `http://localhost:5173`)
 
 Uploaded ID documents are saved to `backend/uploads/` and served at `/uploads/<filename>`.
@@ -78,18 +80,8 @@ npm run dev                # http://localhost:5173
 | PUT | `/api/appointments/:id` | admin | Schedule or cancel an appointment |
 | POST | `/api/auth/admin-login` | — | Exchange passkey for a JWT |
 
-## One manual step: copy the binary image assets
+## Possible extensions
 
-All SVG icons were already copied into `frontend/public/assets/icons`. The **PNG photos/backgrounds and the success GIF** couldn't be copied automatically in this session (binary files can't be moved through the text-based tools available here), so copy these two folders from the original project into the new one:
-
-```
-healthcare-main/public/assets/images   ->  mern/frontend/public/assets/images
-healthcare-main/public/assets/gifs     ->  mern/frontend/public/assets/gifs
-```
-
-That's a straight folder copy — same filenames, same relative path, no code changes needed. Everything in the app already references `/assets/images/...` and `/assets/gifs/...`.
-
-## Notes / follow-ups if you want full parity
-
-- SMS notifications were intentionally dropped. To add them back, wire Twilio (or another SMS provider) into `updateAppointment` in `backend/controllers/appointmentController.js`.
-- File storage is local disk, fine for development. For production, swap `multer.diskStorage` for an S3-compatible multer storage engine.
+- SMS/email appointment reminders (e.g. via Twilio or a transactional email provider)
+- Cloud file storage (S3-compatible) for ID documents in production
+- Patient-facing login so users can view their own appointment history across devices
