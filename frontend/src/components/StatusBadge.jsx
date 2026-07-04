@@ -1,0 +1,27 @@
+import { cn } from "../lib/utils";
+import { StatusIcon } from "../constants";
+
+export const StatusBadge = ({ status }) => {
+  return (
+    <div
+      className={cn("status-badge", {
+        "bg-green-600": status === "scheduled",
+        "bg-blue-600": status === "pending",
+        "bg-red-600": status === "cancelled",
+      })}
+    >
+      <img src={StatusIcon[status]} alt={status} width={24} height={24} className="h-fit w-3" />
+      <p
+        className={cn("text-12-semibold capitalize", {
+          "text-green-500": status === "scheduled",
+          "text-blue-500": status === "pending",
+          "text-red-500": status === "cancelled",
+        })}
+      >
+        {status}
+      </p>
+    </div>
+  );
+};
+
+export default StatusBadge;
