@@ -89,9 +89,10 @@ Node backend calls over HTTP — still $0, just two processes instead of one dur
       `PUT .../:id/stop` (stop), doctor-auth-gated. Conversation page shell: search/pick
       an existing patient, Start/Stop button wired to these endpoints (no audio yet).
       See [devlog/2026-07-08.md](devlog/2026-07-08.md).
-- [ ] **Day 2** — Browser `MediaRecorder` captures mic audio; on Stop, upload the blob
+- [x] **Day 2** — Browser `MediaRecorder` captures mic audio; on Stop, upload the blob
       (extend the existing Multer `upload.js` `fileFilter` to accept audio mimetypes);
       store the file path on the session; add playback of the recorded clip.
+      See [devlog/2026-07-08.md](devlog/2026-07-08.md).
 - [ ] **Day 3** — Wire `nodejs-whisper`: transcribe the uploaded file to plain text
       (batch, no diarization yet), display it under the session.
 - [ ] **Day 4** — Stand up the Python FastAPI diarization microservice (pyannote.audio,

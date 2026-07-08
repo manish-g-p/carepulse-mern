@@ -95,9 +95,22 @@ export const startConversation = async (userId, patientName) => {
   return data;
 };
 
-export const stopConversation = async (sessionId) => {
-  const { data } = await api.put(`/conversations/${sessionId}/stop`);
+export const stopConversation = async (sessionId, audioBlob) => {
+  const formData = new FormData();
+  if (audioBlob) {
+    formData.append("audio", audioBlob, "recording.webm");
+  }
+  const { data } = await api.put(`/conversations/${sessionId}/stop`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
   return data;
+};
+
+// Fetches the recorded audio through the authenticated route and returns a
+// blob URL suitable for an <audio> element's src.
+export const getConversationAudioUrl = async (sessionId) => {
+  const { data } = await api.get(`/conversations/${sessionId}/audio`, { responseType: "blob" });
+  return URL.createObjectURL(data);
 };
 
 export default api;

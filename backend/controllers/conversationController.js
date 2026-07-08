@@ -1,4 +1,7 @@
+const path = require("path");
 const ConversationSession = require("../models/ConversationSession");
+
+const audioDir = path.join(__dirname, "..", "storage", "audio");
 
 // GET /api/conversations  (the logged-in doctor's own sessions, most recent first)
 const listConversations = async (req, res) => {
@@ -34,7 +37,7 @@ const startConversation = async (req, res) => {
   }
 };
 
-// PUT /api/conversations/:id/stop
+// PUT /api/conversations/:id/stop  (multipart/form-data, optional field: audio)
 const stopConversation = async (req, res) => {
   try {
     const session = await ConversationSession.findOne({
@@ -48,6 +51,9 @@ const stopConversation = async (req, res) => {
 
     session.status = "completed";
     session.endedAt = new Date();
+    if (req.file) {
+      session.audioObjectKey = req.file.filename;
+    }
     await session.save();
 
     res.json(session);
@@ -57,4 +63,27 @@ const stopConversation = async (req, res) => {
   }
 };
 
-module.exports = { listConversations, startConversation, stopConversation };
+// GET /api/conversations/:id/audio  (doctor must own the session)
+const getConversationAudio = async (req, res) => {
+  try {
+    const session = await ConversationSession.findOne({
+      _id: req.params.id,
+      doctorId: req.auth.doctorId,
+    });
+    if (!session || !session.audioObjectKey) {
+      return res.status(404).json({ message: "No audio for this session" });
+    }
+
+    res.sendFile(session.audioObjectKey, { root: audioDir }, (error) => {
+      if (error && !res.headersSent) {
+        console.error("getConversationAudio error:", error);
+        res.status(500).json({ message: "Failed to load audio" });
+      }
+    });
+  } catch (error) {
+    console.error("getConversationAudio error:", error);
+    res.status(500).json({ message: "Failed to load audio" });
+  }
+};
+
+module.exports = { listConversations, startConversation, stopConversation, getConversationAudio };

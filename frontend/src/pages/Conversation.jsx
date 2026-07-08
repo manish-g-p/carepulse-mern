@@ -1,9 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
-import { listConversations, lookupPatientByEmail, startConversation, stopConversation } from "../lib/api";
+import {
+  getConversationAudioUrl,
+  listConversations,
+  lookupPatientByEmail,
+  startConversation,
+  stopConversation,
+} from "../lib/api";
 
 const Conversation = () => {
   const [email, setEmail] = useState("");
@@ -14,8 +20,14 @@ const Conversation = () => {
   const [activeSession, setActiveSession] = useState(null);
   const [isBusy, setIsBusy] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [micError, setMicError] = useState("");
 
   const [sessions, setSessions] = useState([]);
+  const [audioUrls, setAudioUrls] = useState({});
+
+  const mediaRecorderRef = useRef(null);
+  const chunksRef = useRef([]);
+  const streamRef = useRef(null);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -29,6 +41,11 @@ const Conversation = () => {
   useEffect(() => {
     loadSessions();
   }, [loadSessions]);
+
+  const stopMicTracks = () => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+  };
 
   const findPatient = async () => {
     setIsLookingUp(true);
@@ -51,22 +68,53 @@ const Conversation = () => {
     if (!patient) return;
     setIsBusy(true);
     setActionError("");
+    setMicError("");
+
     try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
+
+      const recorder = new MediaRecorder(stream);
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) chunksRef.current.push(event.data);
+      };
+      mediaRecorderRef.current = recorder;
+
       const session = await startConversation(patient.userId, patient.name);
       setActiveSession(session);
+      recorder.start();
       await loadSessions();
     } catch (error) {
-      setActionError(error.response?.data?.message || "Failed to start the conversation.");
+      stopMicTracks();
+      if (error.name === "NotAllowedError" || error.name === "NotFoundError") {
+        setMicError("Microphone access was denied or unavailable. Allow mic access and try again.");
+      } else {
+        setActionError(error.response?.data?.message || "Failed to start the conversation.");
+      }
     }
     setIsBusy(false);
   };
+
+  const stopRecorderAndGetBlob = () =>
+    new Promise((resolve) => {
+      const recorder = mediaRecorderRef.current;
+      if (!recorder || recorder.state === "inactive") {
+        resolve(null);
+        return;
+      }
+      recorder.onstop = () => resolve(new Blob(chunksRef.current, { type: "audio/webm" }));
+      recorder.stop();
+    });
 
   const handleStop = async () => {
     if (!activeSession) return;
     setIsBusy(true);
     setActionError("");
     try {
-      await stopConversation(activeSession._id);
+      const audioBlob = await stopRecorderAndGetBlob();
+      stopMicTracks();
+      await stopConversation(activeSession._id, audioBlob);
       setActiveSession(null);
       setPatient(null);
       setEmail("");
@@ -75,6 +123,16 @@ const Conversation = () => {
       setActionError(error.response?.data?.message || "Failed to stop the conversation.");
     }
     setIsBusy(false);
+  };
+
+  const playRecording = async (sessionId) => {
+    if (audioUrls[sessionId]) return;
+    try {
+      const url = await getConversationAudioUrl(sessionId);
+      setAudioUrls((prev) => ({ ...prev, [sessionId]: url }));
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (
@@ -113,6 +171,7 @@ const Conversation = () => {
                 </Button>
               </div>
             )}
+            {micError && <p className="shad-error text-14-regular">{micError}</p>}
             {actionError && <p className="shad-error text-14-regular">{actionError}</p>}
           </section>
         )}
@@ -120,12 +179,11 @@ const Conversation = () => {
         {activeSession && (
           <section className="max-w-md space-y-4 rounded-md border border-dark-500 p-4">
             <p className="text-14-medium">
-              Recording with {activeSession.patientName} — started{" "}
+              🔴 Recording with {activeSession.patientName} — started{" "}
               {new Date(activeSession.startedAt).toLocaleTimeString()}
             </p>
             <p className="text-dark-600 text-14-regular">
-              Audio capture, live transcript, speaker diarization, and translation land here over the
-              next few days.
+              Live transcript, speaker diarization, and translation land here over the next few days.
             </p>
             <Button onClick={handleStop} disabled={isBusy} className="shad-danger-btn w-full">
               {isBusy ? "Stopping..." : "Stop recording"}
@@ -143,11 +201,25 @@ const Conversation = () => {
               {sessions.map((session) => (
                 <li
                   key={session._id}
-                  className="flex justify-between rounded-md border border-dark-500 p-3 text-14-regular"
+                  className="flex flex-col gap-2 rounded-md border border-dark-500 p-3 text-14-regular"
                 >
-                  <span>{session.patientName}</span>
-                  <span className="text-dark-600">{session.status}</span>
-                  <span className="text-dark-600">{new Date(session.startedAt).toLocaleString()}</span>
+                  <div className="flex justify-between">
+                    <span>{session.patientName}</span>
+                    <span className="text-dark-600">{session.status}</span>
+                    <span className="text-dark-600">{new Date(session.startedAt).toLocaleString()}</span>
+                  </div>
+                  {session.audioObjectKey &&
+                    (audioUrls[session._id] ? (
+                      <audio controls src={audioUrls[session._id]} className="w-full" />
+                    ) : (
+                      <Button
+                        variant="outline"
+                        onClick={() => playRecording(session._id)}
+                        className="w-fit text-14-regular"
+                      >
+                        ▶ Play recording
+                      </Button>
+                    ))}
                 </li>
               ))}
             </ul>
