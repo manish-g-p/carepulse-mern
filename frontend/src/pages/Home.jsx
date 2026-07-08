@@ -12,9 +12,14 @@ const Home = () => {
 
           <div className="text-14-regular mt-20 flex justify-between">
             <p className="justify-items-end text-dark-600 xl:text-left">© 2026 CarePulse</p>
-            <Link to="/admin" className="text-green-500">
-              Admin
-            </Link>
+            <div className="flex gap-4">
+              <Link to="/doctor/login" className="text-green-500">
+                Doctor
+              </Link>
+              <Link to="/admin" className="text-green-500">
+                Admin
+              </Link>
+            </div>
           </div>
         </div>
       </section>

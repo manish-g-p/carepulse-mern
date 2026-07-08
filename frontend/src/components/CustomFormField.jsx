@@ -32,7 +32,12 @@ const RenderInput = ({ field, props }) => {
           {props.iconSrc && (
             <img src={props.iconSrc} height={24} width={24} alt={props.iconAlt || "icon"} className="ml-2" />
           )}
-          <Input placeholder={props.placeholder} {...fieldNoRef} className="shad-input border-0" />
+          <Input
+            type={props.type || "text"}
+            placeholder={props.placeholder}
+            {...fieldNoRef}
+            className="shad-input border-0"
+          />
         </div>
       );
     case FormFieldType.TEXTAREA:

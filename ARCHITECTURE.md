@@ -1,0 +1,116 @@
+# CarePulse — Conversation Recording, Diarization & Translation
+
+Design doc for three additions to CarePulse: doctor/patient auth, a doctor↔patient
+conversation recorder with speaker diarization + Excel export, and live two-way
+translation. Written for a **$0 budget** — every recommendation below is free/open
+source or a perpetual free tier that never asks for a card.
+
+## Free tech stack
+
+| Need | Free choice | Notes |
+|---|---|---|
+| Speech-to-text | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (Whisper, self-hosted) | Runs on your own CPU/laptop, no per-minute cost. `small`/`base` model is fast enough for near-real-time on CPU. |
+| Speaker diarization | [pyannote.audio](https://github.com/pyannote/pyannote-audio) 3.1 | Free, open weights (accept terms once on Hugging Face, no payment). Distinguishes Doctor/Patient/Attendant as Speaker 1/2/3. |
+| Translation | [LibreTranslate](https://github.com/LibreTranslate/LibreTranslate) (self-hosted, Argos Translate models) | Fully offline-capable, no API key, no rate-limited paid tier. |
+| Excel export | `exceljs` (npm) | Free library, already MIT licensed. |
+| Object storage | Local encrypted disk now → [MinIO](https://min.io/) (self-hosted, Docker) later | Free forever since you run it yourself; no AWS S3 bill. |
+| Message broker (Phase 4) | RabbitMQ (Docker, free) | Only stood up when you actually split services out. |
+| Database | MongoDB Atlas free tier (M0, 512MB, no card) | Already what CarePulse uses. |
+| Hosting (when you want a live demo link) | Render/Railway free web service + Vercel/Netlify for the frontend | Free tiers sleep when idle — fine for a portfolio demo, not for 24/7 uptime. |
+| Secrets | `.env` + GitHub Actions secrets | A real Vault/KMS is overkill at this scale and isn't free to run managed. |
+
+Everything above is swappable later behind small provider interfaces if you ever do want
+to pay for higher-accuracy cloud APIs (Azure/AWS/Google) — the app code won't need to change.
+
+## Target architecture
+
+```mermaid
+flowchart TB
+  subgraph Clients
+    D[Doctor App]
+    P[Patient App]
+    A[Admin Console]
+  end
+  D & P & A --> GW[API Gateway]
+  GW --> AUTH[Auth Service]
+  GW --> APPT[Patient & Appointment Service]
+  GW --> CONV[Conversation Service]
+  GW --> NOTIF[Notification Service]
+  CONV --> MQ[Message Broker]
+  MQ --> STT[Speech + Diarization Worker]
+  MQ --> TR[Translation Worker]
+  MQ --> XL[Excel Export Worker]
+  AUTH & APPT & CONV & NOTIF & STT & TR & XL --> DATA[(MongoDB + Encrypted Object Store + Redis)]
+```
+
+This is the **end state**, not day one. See roadmap below for why we build it as a
+modular monolith first and extract services only once the AI workers are actually a
+bottleneck — standing up Kafka/K8s before you have a working feature just adds
+maintenance for no benefit, especially solo.
+
+## Data model additions
+
+- `Doctor { name, email, passwordHash, specialization }` — done in Phase 0.
+- `ConversationSession { doctorId, patientId, startedAt, endedAt, consent{ givenBy, timestamp }, languagePair, status, audioObjectKey }`
+- `TranscriptSegment { sessionId, speakerLabel, role, text, translatedText, timestampMs }`
+
+## Security checklist (PHI-grade, still free)
+
+- [ ] TLS in transit (free via Let's Encrypt when hosted)
+- [ ] AES-256 at rest for audio files and transcript text (Node `crypto`, key from env var — free)
+- [ ] RBAC: doctor sees only their own sessions, patient sees only their own
+- [ ] Explicit recording consent captured with timestamp before recording can start
+- [ ] Append-only audit log collection (who viewed/downloaded what, when)
+- [ ] Short-lived signed download links instead of public static paths
+- [ ] Defined retention window + delete-on-request
+
+## Roadmap — small, daily-commit-sized tasks
+
+Each checkbox below is scoped to be one sitting's worth of work, so a real day of
+progress maps to a real commit. **Don't backdate or fabricate commit history** — a
+GitHub graph with gaps but real commits is worth more to anyone reviewing it than a
+fake unbroken streak, and it's easy to tell the difference (message timestamps, PR
+history, code quality). Skipping a day and committing twice the next is completely fine.
+
+### Phase 0 — Auth foundation (done ✅ this session)
+- [x] Doctor model + password hashing
+- [x] `requireAuth(...roles)` middleware, generalized from `requireAdmin`
+- [x] Doctor register/login endpoints
+- [x] Doctor login/register pages + protected `/doctor/dashboard` route
+
+### Phase 1 — Conversation MVP (monolith, batch mode)
+- [ ] `ConversationSession` model + `POST /api/conversations` (start) / `PUT .../stop`
+- [ ] Doctor picks a patient from existing records to start a session
+- [ ] Browser `MediaRecorder` captures audio, uploads blob on Stop
+- [ ] Backend runs faster-whisper on the uploaded file (batch, not streaming yet)
+- [ ] Backend runs pyannote.audio diarization, merges speaker labels into transcript
+- [ ] Transcript rendered in UI as `Doctor: ...` / `Patient: ...` / `Patient Party: ...`
+- [ ] Doctor can relabel a misidentified speaker inline
+- [ ] `exceljs` generates the .xlsx (time/speaker/statement) on Stop, downloadable
+
+### Phase 2 — Consent + real-time
+- [ ] Consent capture UI (checkbox/toggle) gating the Start button, stored with timestamp
+- [ ] WebSocket streaming so the transcript fills in live instead of after Stop
+- [ ] Chunked audio processing (rolling window through Whisper) for near-real-time text
+
+### Phase 3 — Translation
+- [ ] Stand up LibreTranslate locally (Docker)
+- [ ] Per-segment translation added to the live transcript, doctor/patient language picker
+- [ ] Verify translation reuses the same recording session (not a separate recorder)
+
+### Phase 4 — Harden security
+- [ ] Field-level encryption for transcript text
+- [ ] Audit log collection + a simple admin view of it
+- [ ] Signed short-lived download URLs for audio/Excel
+- [ ] Retention policy + delete endpoint
+
+### Phase 5 — Extract services (only once Phase 1-4 work and feel slow)
+- [ ] Docker Compose: split Conversation Service + AI workers out of the monolith
+- [ ] RabbitMQ between Conversation Service and workers
+- [ ] API Gateway (Nginx) in front of everything
+
+### Phase 6 — Extras
+- [ ] Medication/symptom keyword highlighting in the transcript (doctor confirms, never auto-decides)
+- [ ] Patient portal: view own conversation history
+- [ ] Medication-reminder notifications derived from the transcript
+- [ ] Multi-speaker sessions (e.g. a nurse also present)

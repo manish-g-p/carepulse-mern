@@ -1,24 +1,37 @@
 const jwt = require("jsonwebtoken");
 
-// Protects admin-only routes. Expects header: Authorization: Bearer <token>
-const requireAdmin = (req, res, next) => {
+// Verifies the bearer token and returns its decoded payload, or null.
+const verifyToken = (req) => {
   const authHeader = req.headers.authorization || "";
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-
-  if (!token) {
-    return res.status(401).json({ message: "Missing admin token" });
-  }
-
+  if (!token) return null;
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.role !== "admin") {
-      return res.status(403).json({ message: "Forbidden" });
-    }
-    req.admin = decoded;
-    next();
+    return jwt.verify(token, process.env.JWT_SECRET);
   } catch (error) {
-    return res.status(401).json({ message: "Invalid or expired token" });
+    return null;
   }
 };
 
-module.exports = { requireAdmin };
+// Protects routes. Pass allowed roles (e.g. requireAuth("doctor", "admin")),
+// or call with no args to just require any valid token.
+const requireAuth = (...allowedRoles) => (req, res, next) => {
+  const decoded = verifyToken(req);
+  if (!decoded) {
+    return res.status(401).json({ message: "Missing or invalid token" });
+  }
+  if (allowedRoles.length && !allowedRoles.includes(decoded.role)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+  req.auth = decoded;
+  next();
+};
+
+// Kept for backwards compatibility with existing admin-only routes.
+const requireAdmin = (req, res, next) => {
+  requireAuth("admin")(req, res, () => {
+    req.admin = req.auth;
+    next();
+  });
+};
+
+module.exports = { requireAuth, requireAdmin };

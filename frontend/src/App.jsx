@@ -4,6 +4,10 @@ import Register from "./pages/Register.jsx";
 import NewAppointment from "./pages/NewAppointment.jsx";
 import Success from "./pages/Success.jsx";
 import Admin from "./pages/Admin.jsx";
+import DoctorRegister from "./pages/DoctorRegister.jsx";
+import DoctorLogin from "./pages/DoctorLogin.jsx";
+import DoctorDashboard from "./pages/DoctorDashboard.jsx";
+import RequireDoctor from "./components/RequireDoctor.jsx";
 
 function App() {
   return (
@@ -13,6 +17,16 @@ function App() {
       <Route path="/patients/:userId/new-appointment" element={<NewAppointment />} />
       <Route path="/patients/:userId/new-appointment/success" element={<Success />} />
       <Route path="/admin" element={<Admin />} />
+      <Route path="/doctor/register" element={<DoctorRegister />} />
+      <Route path="/doctor/login" element={<DoctorLogin />} />
+      <Route
+        path="/doctor/dashboard"
+        element={
+          <RequireDoctor>
+            <DoctorDashboard />
+          </RequireDoctor>
+        }
+      />
     </Routes>
   );
 }
