@@ -8,6 +8,7 @@ const {
   updateSpeakerRoles,
   getConversationExcel,
   getConversationAudio,
+  getConversationAudit,
 } = require("../controllers/conversationController");
 
 const router = express.Router();
@@ -20,5 +21,6 @@ router.put("/:id/stop", uploadAudio.single("audio"), stopConversation);
 router.put("/:id/speaker-roles", updateSpeakerRoles);
 router.get("/:id/excel", getConversationExcel);
 router.get("/:id/audio", getConversationAudio);
+router.get("/:id/audit", getConversationAudit);
 
 module.exports = router;

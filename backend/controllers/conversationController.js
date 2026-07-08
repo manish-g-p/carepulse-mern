@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const ConversationSession = require("../models/ConversationSession");
+const AuditLog = require("../models/AuditLog");
 const { convertToWav, transcribeSegments } = require("../services/transcribeService");
 const { diarizeSegments } = require("../services/diarizeService");
 const { buildTranscriptWorkbook } = require("../services/excelService");
@@ -57,19 +58,27 @@ const listConversations = async (req, res) => {
   }
 };
 
-// POST /api/conversations  { userId, patientName }
+// POST /api/conversations  { userId, patientName, consentGiven }
 const startConversation = async (req, res) => {
   try {
-    const { userId, patientName } = req.body;
+    const { userId, patientName, consentGiven } = req.body;
     if (!userId || !patientName) {
       return res.status(400).json({ message: "userId and patientName are required" });
+    }
+    // Enforced server-side too, not just by disabling the button client-side --
+    // a recording session must never exist without recorded consent.
+    if (consentGiven !== true) {
+      return res.status(400).json({ message: "Patient consent is required before recording can start" });
     }
 
     const session = await ConversationSession.create({
       doctorId: req.auth.doctorId,
       userId,
       patientName,
+      consent: { given: true, at: new Date() },
     });
+
+    await AuditLog.create({ doctorId: req.auth.doctorId, sessionId: session._id, action: "start" });
 
     res.status(201).json(session);
   } catch (error) {
@@ -97,6 +106,7 @@ const stopConversation = async (req, res) => {
       session.transcriptStatus = "processing";
     }
     await session.save();
+    await AuditLog.create({ doctorId: req.auth.doctorId, sessionId: session._id, action: "stop" });
 
     res.json(session);
 
@@ -143,6 +153,12 @@ const getConversationExcel = async (req, res) => {
       return res.status(404).json({ message: "No transcript for this session yet" });
     }
 
+    await AuditLog.create({
+      doctorId: req.auth.doctorId,
+      sessionId: session._id,
+      action: "download-excel",
+    });
+
     const workbook = buildTranscriptWorkbook(session);
     res.setHeader(
       "Content-Type",
@@ -171,6 +187,12 @@ const getConversationAudio = async (req, res) => {
       return res.status(404).json({ message: "No audio for this session" });
     }
 
+    await AuditLog.create({
+      doctorId: req.auth.doctorId,
+      sessionId: session._id,
+      action: "download-audio",
+    });
+
     res.sendFile(session.audioObjectKey, { root: audioDir }, (error) => {
       if (error && !res.headersSent) {
         console.error("getConversationAudio error:", error);
@@ -183,6 +205,23 @@ const getConversationAudio = async (req, res) => {
   }
 };
 
+// GET /api/conversations/:id/audit  (doctor must own the session)
+const getConversationAudit = async (req, res) => {
+  try {
+    const session = await ConversationSession.findOne({
+      _id: req.params.id,
+      doctorId: req.auth.doctorId,
+    });
+    if (!session) return res.status(404).json({ message: "Session not found" });
+
+    const entries = await AuditLog.find({ sessionId: session._id }).sort({ at: 1 });
+    res.json(entries);
+  } catch (error) {
+    console.error("getConversationAudit error:", error);
+    res.status(500).json({ message: "Failed to load audit log" });
+  }
+};
+
 module.exports = {
   listConversations,
   startConversation,
@@ -190,4 +229,5 @@ module.exports = {
   updateSpeakerRoles,
   getConversationExcel,
   getConversationAudio,
+  getConversationAudit,
 };

@@ -20,6 +20,7 @@ const Conversation = () => {
   const [patient, setPatient] = useState(null);
   const [lookupError, setLookupError] = useState("");
   const [isLookingUp, setIsLookingUp] = useState(false);
+  const [consentGiven, setConsentGiven] = useState(false);
 
   const [activeSession, setActiveSession] = useState(null);
   const [isBusy, setIsBusy] = useState(false);
@@ -64,6 +65,7 @@ const Conversation = () => {
     setIsLookingUp(true);
     setLookupError("");
     setPatient(null);
+    setConsentGiven(false);
     try {
       const found = await lookupPatientByEmail(email);
       if (!found) {
@@ -78,7 +80,7 @@ const Conversation = () => {
   };
 
   const handleStart = async () => {
-    if (!patient) return;
+    if (!patient || !consentGiven) return;
     setIsBusy(true);
     setActionError("");
     setMicError("");
@@ -94,7 +96,7 @@ const Conversation = () => {
       };
       mediaRecorderRef.current = recorder;
 
-      const session = await startConversation(patient.userId, patient.name);
+      const session = await startConversation(patient.userId, patient.name, consentGiven);
       setActiveSession(session);
       recorder.start();
       await loadSessions();
@@ -131,6 +133,7 @@ const Conversation = () => {
       setActiveSession(null);
       setPatient(null);
       setEmail("");
+      setConsentGiven(false);
       await loadSessions();
     } catch (error) {
       setActionError(error.response?.data?.message || "Failed to stop the conversation.");
@@ -197,7 +200,20 @@ const Conversation = () => {
                 <p className="text-14-medium">
                   {patient.name} <span className="text-dark-600">({patient.email})</span>
                 </p>
-                <Button onClick={handleStart} disabled={isBusy} className="shad-primary-btn w-full">
+                <label className="flex items-start gap-2 text-14-regular text-dark-600">
+                  <input
+                    type="checkbox"
+                    checked={consentGiven}
+                    onChange={(e) => setConsentGiven(e.target.checked)}
+                    className="mt-1"
+                  />
+                  The patient has verbally consented to this conversation being recorded.
+                </label>
+                <Button
+                  onClick={handleStart}
+                  disabled={isBusy || !consentGiven}
+                  className="shad-primary-btn w-full"
+                >
                   {isBusy ? "Starting..." : "Start recording"}
                 </Button>
               </div>

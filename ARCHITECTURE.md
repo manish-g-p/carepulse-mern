@@ -119,8 +119,9 @@ and matches the whisper.cpp integration pattern.
       download time rather than eagerly on Stop, so it always reflects the latest
       Day 5 speaker-role relabeling instead of baking in stale labels.
       See [devlog/2026-07-08.md](devlog/2026-07-08.md).
-- [ ] **Day 7** — Consent capture (checkbox/toggle, timestamped) gating the Start button;
+- [x] **Day 7** — Consent capture (checkbox/toggle, timestamped) gating the Start button;
       minimal append-only `AuditLog` collection recording start/stop/download events.
+      See [devlog/2026-07-08.md](devlog/2026-07-08.md).
 - [ ] **Day 8** — Security pass: AES-256-encrypt the audio file at rest (Node `crypto`
       before writing to disk), ownership checks on every session/transcript/Excel route.
 - [ ] **Day 9** — Doctor dashboard: replace the Phase 0 placeholder with a real list of
