@@ -7,6 +7,7 @@ import Admin from "./pages/Admin.jsx";
 import DoctorRegister from "./pages/DoctorRegister.jsx";
 import DoctorLogin from "./pages/DoctorLogin.jsx";
 import DoctorDashboard from "./pages/DoctorDashboard.jsx";
+import Conversation from "./pages/Conversation.jsx";
 import RequireDoctor from "./components/RequireDoctor.jsx";
 
 function App() {
@@ -24,6 +25,14 @@ function App() {
         element={
           <RequireDoctor>
             <DoctorDashboard />
+          </RequireDoctor>
+        }
+      />
+      <Route
+        path="/doctor/conversation"
+        element={
+          <RequireDoctor>
+            <Conversation />
           </RequireDoctor>
         }
       />

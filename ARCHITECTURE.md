@@ -78,25 +78,42 @@ history, code quality). Skipping a day and committing twice the next is complete
 - [x] Doctor register/login endpoints
 - [x] Doctor login/register pages + protected `/doctor/dashboard` route
 
-### Phase 1 — Conversation MVP (monolith, batch mode)
-- [ ] `ConversationSession` model + `POST /api/conversations` (start) / `PUT .../stop`
-- [ ] Doctor picks a patient from existing records to start a session
-- [ ] Browser `MediaRecorder` captures audio, uploads blob on Stop
-- [ ] Backend runs faster-whisper on the uploaded file (batch, not streaming yet)
-- [ ] Backend runs pyannote.audio diarization, merges speaker labels into transcript
-- [ ] Transcript rendered in UI as `Doctor: ...` / `Patient: ...` / `Patient Party: ...`
-- [ ] Doctor can relabel a misidentified speaker inline
-- [ ] `exceljs` generates the .xlsx (time/speaker/statement) on Stop, downloadable
+### Phase 1–3, broken into a 10-day sprint
 
-### Phase 2 — Consent + real-time
-- [ ] Consent capture UI (checkbox/toggle) gating the Start button, stored with timestamp
-- [ ] WebSocket streaming so the transcript fills in live instead of after Stop
-- [ ] Chunked audio processing (rolling window through Whisper) for near-real-time text
+Tooling note: STT uses `nodejs-whisper` (npm wrapper around whisper.cpp — pure JS/C++,
+no Python needed, model downloads once and runs free/local). Diarization
+(pyannote.audio) is Python-only, so it runs as a small local FastAPI microservice the
+Node backend calls over HTTP — still $0, just two processes instead of one during dev.
 
-### Phase 3 — Translation
-- [ ] Stand up LibreTranslate locally (Docker)
-- [ ] Per-segment translation added to the live transcript, doctor/patient language picker
-- [ ] Verify translation reuses the same recording session (not a separate recorder)
+- [x] **Day 1** — `ConversationSession` model, `POST /api/conversations` (start) /
+      `PUT .../:id/stop` (stop), doctor-auth-gated. Conversation page shell: search/pick
+      an existing patient, Start/Stop button wired to these endpoints (no audio yet).
+      See [devlog/2026-07-08.md](devlog/2026-07-08.md).
+- [ ] **Day 2** — Browser `MediaRecorder` captures mic audio; on Stop, upload the blob
+      (extend the existing Multer `upload.js` `fileFilter` to accept audio mimetypes);
+      store the file path on the session; add playback of the recorded clip.
+- [ ] **Day 3** — Wire `nodejs-whisper`: transcribe the uploaded file to plain text
+      (batch, no diarization yet), display it under the session.
+- [ ] **Day 4** — Stand up the Python FastAPI diarization microservice (pyannote.audio,
+      local venv or Docker); Node calls it with the audio file and merges its speaker
+      segments with the Whisper transcript by timestamp.
+- [ ] **Day 5** — Map generic `Speaker 1/2` labels to Doctor/Patient/Patient Party roles;
+      doctor can relabel a misidentified speaker inline; render as `Doctor: ...` /
+      `Patient: ...` / `Patient Party: ...`.
+- [ ] **Day 6** — `exceljs` generates the .xlsx (time/speaker/statement) on Stop; add a
+      download endpoint that checks the requesting doctor owns the session.
+- [ ] **Day 7** — Consent capture (checkbox/toggle, timestamped) gating the Start button;
+      minimal append-only `AuditLog` collection recording start/stop/download events.
+- [ ] **Day 8** — Security pass: AES-256-encrypt the audio file at rest (Node `crypto`
+      before writing to disk), ownership checks on every session/transcript/Excel route.
+- [ ] **Day 9** — Doctor dashboard: replace the Phase 0 placeholder with a real list of
+      past sessions (date, patient, status), click through to view transcript + re-download.
+- [ ] **Day 10** — Stand up LibreTranslate locally (Docker); add a language-pair picker
+      and a "translate" action per transcript segment, reusing the same session (this is
+      the seed of Phase 3, not the full real-time version).
+
+Each day's box maps to roughly one commit. If a day runs long or short, that's normal —
+push what's real for that day rather than padding it out.
 
 ### Phase 4 — Harden security
 - [ ] Field-level encryption for transcript text

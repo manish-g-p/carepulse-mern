@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const DoctorDashboard = () => {
   const navigate = useNavigate();
@@ -24,9 +24,10 @@ const DoctorDashboard = () => {
 
       <main className="space-y-4">
         <h1 className="header">Welcome back 👋</h1>
-        <p className="text-dark-700">
-          Conversation recording, transcription, and translation tools land here next.
-        </p>
+        <p className="text-dark-700">Start a new patient conversation, or review past ones.</p>
+        <Link to="/doctor/conversation" className="shad-primary-btn inline-block rounded-md px-4 py-2">
+          New conversation
+        </Link>
       </main>
     </div>
   );

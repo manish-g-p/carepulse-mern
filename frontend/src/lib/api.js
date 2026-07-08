@@ -75,4 +75,29 @@ export const doctorLogin = async (email, password) => {
   return data;
 };
 
+export const lookupPatientByEmail = async (email) => {
+  try {
+    const { data } = await api.get("/users/lookup", { params: { email } });
+    return data;
+  } catch (error) {
+    if (error.response?.status === 404) return null;
+    throw error;
+  }
+};
+
+export const listConversations = async () => {
+  const { data } = await api.get("/conversations");
+  return data;
+};
+
+export const startConversation = async (userId, patientName) => {
+  const { data } = await api.post("/conversations", { userId, patientName });
+  return data;
+};
+
+export const stopConversation = async (sessionId) => {
+  const { data } = await api.put(`/conversations/${sessionId}/stop`);
+  return data;
+};
+
 export default api;

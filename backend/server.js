@@ -8,6 +8,7 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const patientRoutes = require("./routes/patientRoutes");
 const appointmentRoutes = require("./routes/appointmentRoutes");
+const conversationRoutes = require("./routes/conversationRoutes");
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 app.use("/api/auth", authRoutes);
 app.use("/api", patientRoutes);
 app.use("/api/appointments", appointmentRoutes);
+app.use("/api/conversations", conversationRoutes);
 
 // 404 handler
 app.use((req, res) => res.status(404).json({ message: "Not found" }));

@@ -57,6 +57,22 @@ const registerPatient = async (req, res) => {
   }
 };
 
+// GET /api/users/lookup?email=...  (doctor searching for a patient to start a conversation with)
+const lookupUserByEmail = async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ message: "email is required" });
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user) return res.status(404).json({ message: "No patient found with that email" });
+
+    res.json({ userId: user.userId, name: user.name, email: user.email });
+  } catch (error) {
+    console.error("lookupUserByEmail error:", error);
+    res.status(500).json({ message: "Failed to look up patient" });
+  }
+};
+
 // GET /api/patients/user/:userId
 const getPatient = async (req, res) => {
   try {
@@ -71,4 +87,4 @@ const getPatient = async (req, res) => {
   }
 };
 
-module.exports = { createUser, getUser, registerPatient, getPatient };
+module.exports = { createUser, getUser, lookupUserByEmail, registerPatient, getPatient };
