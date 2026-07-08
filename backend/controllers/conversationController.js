@@ -3,6 +3,7 @@ const path = require("path");
 const ConversationSession = require("../models/ConversationSession");
 const { convertToWav, transcribeSegments } = require("../services/transcribeService");
 const { diarizeSegments } = require("../services/diarizeService");
+const { buildTranscriptWorkbook } = require("../services/excelService");
 
 const audioDir = path.join(__dirname, "..", "storage", "audio");
 
@@ -130,6 +131,35 @@ const updateSpeakerRoles = async (req, res) => {
   }
 };
 
+// GET /api/conversations/:id/excel  (doctor must own the session)
+const getConversationExcel = async (req, res) => {
+  try {
+    const session = await ConversationSession.findOne({
+      _id: req.params.id,
+      doctorId: req.auth.doctorId,
+    });
+    if (!session) return res.status(404).json({ message: "Session not found" });
+    if (!session.segments?.length) {
+      return res.status(404).json({ message: "No transcript for this session yet" });
+    }
+
+    const workbook = buildTranscriptWorkbook(session);
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${session.patientName.replace(/[^\w-]/g, "_")}-transcript.xlsx"`
+    );
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error("getConversationExcel error:", error);
+    res.status(500).json({ message: "Failed to generate transcript file" });
+  }
+};
+
 // GET /api/conversations/:id/audio  (doctor must own the session)
 const getConversationAudio = async (req, res) => {
   try {
@@ -158,5 +188,6 @@ module.exports = {
   startConversation,
   stopConversation,
   updateSpeakerRoles,
+  getConversationExcel,
   getConversationAudio,
 };

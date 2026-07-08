@@ -114,8 +114,11 @@ and matches the whisper.cpp integration pattern.
       doctor can relabel a misidentified speaker inline; render as `Doctor: ...` /
       `Patient: ...` / `Patient Party: ...`.
       See [devlog/2026-07-08.md](devlog/2026-07-08.md).
-- [ ] **Day 6** — `exceljs` generates the .xlsx (time/speaker/statement) on Stop; add a
-      download endpoint that checks the requesting doctor owns the session.
+- [x] **Day 6** — `exceljs` generates the .xlsx (time/speaker/statement); download
+      endpoint checks the requesting doctor owns the session. Generated on-demand at
+      download time rather than eagerly on Stop, so it always reflects the latest
+      Day 5 speaker-role relabeling instead of baking in stale labels.
+      See [devlog/2026-07-08.md](devlog/2026-07-08.md).
 - [ ] **Day 7** — Consent capture (checkbox/toggle, timestamped) gating the Start button;
       minimal append-only `AuditLog` collection recording start/stop/download events.
 - [ ] **Day 8** — Security pass: AES-256-encrypt the audio file at rest (Node `crypto`

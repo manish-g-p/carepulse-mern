@@ -118,4 +118,18 @@ export const updateSpeakerRoles = async (sessionId, speakerRoles) => {
   return data;
 };
 
+// Fetches the transcript .xlsx and triggers a browser download (a plain
+// <a href> can't carry the auth header, so this fetches as a blob first).
+export const downloadConversationExcel = async (sessionId, patientName) => {
+  const { data } = await api.get(`/conversations/${sessionId}/excel`, { responseType: "blob" });
+  const url = URL.createObjectURL(data);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${patientName.replace(/[^\w-]/g, "_")}-transcript.xlsx`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
+
 export default api;

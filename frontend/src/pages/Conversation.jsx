@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import {
+  downloadConversationExcel,
   getConversationAudioUrl,
   listConversations,
   lookupPatientByEmail,
@@ -157,6 +158,14 @@ const Conversation = () => {
     }
   };
 
+  const downloadExcel = async (session) => {
+    try {
+      await downloadConversationExcel(session._id, session.patientName);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   return (
     <div className="mx-auto flex max-w-7xl flex-col space-y-14 p-8">
       <header className="admin-header">
@@ -253,6 +262,13 @@ const Conversation = () => {
                   {session.transcriptStatus === "done" &&
                     (session.segments?.length ? (
                       <div className="space-y-3 rounded-md bg-dark-400 p-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => downloadExcel(session)}
+                          className="w-fit text-14-regular"
+                        >
+                          ⬇ Download Excel
+                        </Button>
                         <div className="flex flex-wrap gap-3">
                           {[...new Set(session.segments.map((s) => s.speaker))].map((speaker) => (
                             <label key={speaker} className="flex items-center gap-2 text-dark-600">

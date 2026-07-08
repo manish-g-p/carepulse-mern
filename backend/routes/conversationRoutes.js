@@ -6,6 +6,7 @@ const {
   startConversation,
   stopConversation,
   updateSpeakerRoles,
+  getConversationExcel,
   getConversationAudio,
 } = require("../controllers/conversationController");
 
@@ -17,6 +18,7 @@ router.get("/", listConversations);
 router.post("/", startConversation);
 router.put("/:id/stop", uploadAudio.single("audio"), stopConversation);
 router.put("/:id/speaker-roles", updateSpeakerRoles);
+router.get("/:id/excel", getConversationExcel);
 router.get("/:id/audio", getConversationAudio);
 
 module.exports = router;
