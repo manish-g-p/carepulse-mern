@@ -1,23 +1,9 @@
 const multer = require("multer");
 const path = require("path");
-const fs = require("fs");
 
-// Kept out of backend/uploads (which is served publicly at /uploads) since
-// conversation audio is PHI and must only ever be reachable through an
-// authenticated, ownership-checked route.
-const audioDir = path.join(__dirname, "..", "storage", "audio");
-if (!fs.existsSync(audioDir)) {
-  fs.mkdirSync(audioDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, audioDir),
-  filename: (req, file, cb) => {
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `${unique}${path.extname(file.originalname) || ".webm"}`);
-  },
-});
-
+// Uses memoryStorage (not disk) so the raw plaintext audio never touches
+// disk unencrypted -- conversationController encrypts req.file.buffer
+// before writing anything to backend/storage/audio.
 const fileFilter = (req, file, cb) => {
   const allowedMimeTypes = /^audio\//;
   const allowedExt = /webm|wav|ogg|mp3|m4a|mp4|aac/;
@@ -27,7 +13,7 @@ const fileFilter = (req, file, cb) => {
 };
 
 const uploadAudio = multer({
-  storage,
+  storage: multer.memoryStorage(),
   fileFilter,
   limits: { fileSize: 100 * 1024 * 1024 }, // 100MB (~ generous for a recorded consultation)
 });

@@ -57,11 +57,13 @@ maintenance for no benefit, especially solo.
 ## Security checklist (PHI-grade, still free)
 
 - [ ] TLS in transit (free via Let's Encrypt when hosted)
-- [ ] AES-256 at rest for audio files and transcript text (Node `crypto`, key from env var — free)
-- [ ] RBAC: doctor sees only their own sessions, patient sees only their own
-- [ ] Explicit recording consent captured with timestamp before recording can start
-- [ ] Append-only audit log collection (who viewed/downloaded what, when)
-- [ ] Short-lived signed download links instead of public static paths
+- [x] AES-256 at rest for audio files (Node `crypto`, key from env var — free). Transcript
+      text is not yet field-level encrypted, only the audio blob (Day 8 scope was audio).
+- [x] RBAC: doctor sees only their own sessions, patient sees only their own
+- [x] Explicit recording consent captured with timestamp before recording can start
+- [x] Append-only audit log collection (who viewed/downloaded what, when)
+- [ ] Short-lived signed download links instead of public static paths (not needed — every
+      download route is already behind JWT auth + ownership check, no public static path exists)
 - [ ] Defined retention window + delete-on-request
 
 ## Roadmap — small, daily-commit-sized tasks
@@ -122,8 +124,12 @@ and matches the whisper.cpp integration pattern.
 - [x] **Day 7** — Consent capture (checkbox/toggle, timestamped) gating the Start button;
       minimal append-only `AuditLog` collection recording start/stop/download events.
       See [devlog/2026-07-08.md](devlog/2026-07-08.md).
-- [ ] **Day 8** — Security pass: AES-256-encrypt the audio file at rest (Node `crypto`
-      before writing to disk), ownership checks on every session/transcript/Excel route.
+- [x] **Day 8** — Security pass: AES-256-GCM-encrypt the audio file at rest (Node
+      `crypto`, memoryStorage upload so plaintext never touches disk); ownership checks
+      already existed on every session/transcript/Excel/audio/audit route. Also found
+      and fixed a live credential leak (real Mongo/JWT/passkey secrets committed in
+      `.env.example` on a public repo since the first commit) — rotated with the user.
+      See [devlog/2026-07-08.md](devlog/2026-07-08.md).
 - [ ] **Day 9** — Doctor dashboard: replace the Phase 0 placeholder with a real list of
       past sessions (date, patient, status), click through to view transcript + re-download.
 - [ ] **Day 10** — Stand up LibreTranslate locally (Docker); add a language-pair picker

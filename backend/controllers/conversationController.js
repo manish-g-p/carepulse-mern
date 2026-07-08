@@ -1,20 +1,32 @@
+const crypto = require("crypto");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const ConversationSession = require("../models/ConversationSession");
 const AuditLog = require("../models/AuditLog");
 const { convertToWav, transcribeSegments } = require("../services/transcribeService");
 const { diarizeSegments } = require("../services/diarizeService");
 const { buildTranscriptWorkbook } = require("../services/excelService");
+const { encryptBuffer, decryptBuffer } = require("../services/audioCryptoService");
 
 const audioDir = path.join(__dirname, "..", "storage", "audio");
+if (!fs.existsSync(audioDir)) fs.mkdirSync(audioDir, { recursive: true });
 
 // Fire-and-forget: transcription+diarization can take a while, so this runs
 // after the stop response has already been sent rather than blocking the
-// doctor's Stop click.
+// doctor's Stop click. audioFilename on disk is AES-256-GCM encrypted, so it
+// has to be decrypted to a temp plaintext file before ffmpeg/whisper can
+// read it -- that temp file is deleted immediately after, same as the
+// intermediate WAV.
 const runSpeechProcessing = async (sessionId, audioFilename) => {
+  let tempPlainPath;
   let wavPath;
   try {
-    wavPath = await convertToWav(path.join(audioDir, audioFilename));
+    const decrypted = decryptBuffer(fs.readFileSync(path.join(audioDir, audioFilename)));
+    tempPlainPath = path.join(os.tmpdir(), `carepulse-${Date.now()}-${crypto.randomBytes(8).toString("hex")}.webm`);
+    fs.writeFileSync(tempPlainPath, decrypted);
+
+    wavPath = await convertToWav(tempPlainPath);
     const { segments } = await transcribeSegments(wavPath);
 
     // Diarization is best-effort: if the tooling isn't installed, or it
@@ -41,6 +53,7 @@ const runSpeechProcessing = async (sessionId, audioFilename) => {
     console.error("runSpeechProcessing error:", error);
     await ConversationSession.findByIdAndUpdate(sessionId, { transcriptStatus: "failed" });
   } finally {
+    if (tempPlainPath) fs.rmSync(tempPlainPath, { force: true });
     if (wavPath) fs.rmSync(wavPath, { force: true });
   }
 };
@@ -101,8 +114,11 @@ const stopConversation = async (req, res) => {
 
     session.status = "completed";
     session.endedAt = new Date();
+    let encryptedFilename;
     if (req.file) {
-      session.audioObjectKey = req.file.filename;
+      encryptedFilename = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}.webm.enc`;
+      fs.writeFileSync(path.join(audioDir, encryptedFilename), encryptBuffer(req.file.buffer));
+      session.audioObjectKey = encryptedFilename;
       session.transcriptStatus = "processing";
     }
     await session.save();
@@ -110,8 +126,8 @@ const stopConversation = async (req, res) => {
 
     res.json(session);
 
-    if (req.file) {
-      runSpeechProcessing(session._id, req.file.filename);
+    if (encryptedFilename) {
+      runSpeechProcessing(session._id, encryptedFilename);
     }
   } catch (error) {
     console.error("stopConversation error:", error);
@@ -193,12 +209,9 @@ const getConversationAudio = async (req, res) => {
       action: "download-audio",
     });
 
-    res.sendFile(session.audioObjectKey, { root: audioDir }, (error) => {
-      if (error && !res.headersSent) {
-        console.error("getConversationAudio error:", error);
-        res.status(500).json({ message: "Failed to load audio" });
-      }
-    });
+    const decrypted = decryptBuffer(fs.readFileSync(path.join(audioDir, session.audioObjectKey)));
+    res.setHeader("Content-Type", "audio/webm");
+    res.send(decrypted);
   } catch (error) {
     console.error("getConversationAudio error:", error);
     res.status(500).json({ message: "Failed to load audio" });
