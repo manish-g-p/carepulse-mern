@@ -71,6 +71,21 @@ const listConversations = async (req, res) => {
   }
 };
 
+// GET /api/conversations/:id  (doctor must own the session)
+const getConversation = async (req, res) => {
+  try {
+    const session = await ConversationSession.findOne({
+      _id: req.params.id,
+      doctorId: req.auth.doctorId,
+    });
+    if (!session) return res.status(404).json({ message: "Session not found" });
+    res.json(session);
+  } catch (error) {
+    console.error("getConversation error:", error);
+    res.status(500).json({ message: "Failed to load session" });
+  }
+};
+
 // POST /api/conversations  { userId, patientName, consentGiven }
 const startConversation = async (req, res) => {
   try {
@@ -237,6 +252,7 @@ const getConversationAudit = async (req, res) => {
 
 module.exports = {
   listConversations,
+  getConversation,
   startConversation,
   stopConversation,
   updateSpeakerRoles,

@@ -130,8 +130,11 @@ and matches the whisper.cpp integration pattern.
       and fixed a live credential leak (real Mongo/JWT/passkey secrets committed in
       `.env.example` on a public repo since the first commit) — rotated with the user.
       See [devlog/2026-07-08.md](devlog/2026-07-08.md).
-- [ ] **Day 9** — Doctor dashboard: replace the Phase 0 placeholder with a real list of
+- [x] **Day 9** — Doctor dashboard: replace the Phase 0 placeholder with a real list of
       past sessions (date, patient, status), click through to view transcript + re-download.
+      Extracted the transcript/playback/relabel/Excel UI into a shared `SessionTranscript`
+      component used by both the Conversation page's inline list and the new detail view.
+      See [devlog/2026-07-08.md](devlog/2026-07-08.md).
 - [ ] **Day 10** — Stand up LibreTranslate locally (Docker); add a language-pair picker
       and a "translate" action per transcript segment, reusing the same session (this is
       the seed of Phase 3, not the full real-time version).

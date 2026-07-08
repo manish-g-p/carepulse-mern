@@ -90,6 +90,11 @@ export const listConversations = async () => {
   return data;
 };
 
+export const getConversation = async (sessionId) => {
+  const { data } = await api.get(`/conversations/${sessionId}`);
+  return data;
+};
+
 export const startConversation = async (userId, patientName, consentGiven) => {
   const { data } = await api.post("/conversations", { userId, patientName, consentGiven });
   return data;

@@ -8,6 +8,7 @@ import DoctorRegister from "./pages/DoctorRegister.jsx";
 import DoctorLogin from "./pages/DoctorLogin.jsx";
 import DoctorDashboard from "./pages/DoctorDashboard.jsx";
 import Conversation from "./pages/Conversation.jsx";
+import SessionView from "./pages/SessionView.jsx";
 import RequireDoctor from "./components/RequireDoctor.jsx";
 
 function App() {
@@ -33,6 +34,14 @@ function App() {
         element={
           <RequireDoctor>
             <Conversation />
+          </RequireDoctor>
+        }
+      />
+      <Route
+        path="/doctor/sessions/:sessionId"
+        element={
+          <RequireDoctor>
+            <SessionView />
           </RequireDoctor>
         }
       />
