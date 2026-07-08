@@ -110,9 +110,10 @@ and matches the whisper.cpp integration pattern.
 - [x] **Day 4** — Diarize each Whisper segment (MFCC clustering, see tooling note above)
       and merge speaker labels into the transcript.
       See [devlog/2026-07-08.md](devlog/2026-07-08.md).
-- [ ] **Day 5** — Map generic `Speaker 1/2` labels to Doctor/Patient/Patient Party roles;
+- [x] **Day 5** — Map generic `Speaker 1/2` labels to Doctor/Patient/Patient Party roles;
       doctor can relabel a misidentified speaker inline; render as `Doctor: ...` /
       `Patient: ...` / `Patient Party: ...`.
+      See [devlog/2026-07-08.md](devlog/2026-07-08.md).
 - [ ] **Day 6** — `exceljs` generates the .xlsx (time/speaker/statement) on Stop; add a
       download endpoint that checks the requesting doctor owns the session.
 - [ ] **Day 7** — Consent capture (checkbox/toggle, timestamped) gating the Start button;

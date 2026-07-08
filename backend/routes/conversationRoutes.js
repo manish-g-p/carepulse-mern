@@ -5,6 +5,7 @@ const {
   listConversations,
   startConversation,
   stopConversation,
+  updateSpeakerRoles,
   getConversationAudio,
 } = require("../controllers/conversationController");
 
@@ -15,6 +16,7 @@ router.use(requireAuth("doctor"));
 router.get("/", listConversations);
 router.post("/", startConversation);
 router.put("/:id/stop", uploadAudio.single("audio"), stopConversation);
+router.put("/:id/speaker-roles", updateSpeakerRoles);
 router.get("/:id/audio", getConversationAudio);
 
 module.exports = router;

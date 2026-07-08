@@ -9,7 +9,10 @@ import {
   lookupPatientByEmail,
   startConversation,
   stopConversation,
+  updateSpeakerRoles,
 } from "../lib/api";
+
+const ROLE_OPTIONS = ["", "Doctor", "Patient", "Patient Party 1", "Patient Party 2"];
 
 const Conversation = () => {
   const [email, setEmail] = useState("");
@@ -144,6 +147,16 @@ const Conversation = () => {
     }
   };
 
+  const relabelSpeaker = async (session, speaker, role) => {
+    const nextRoles = { ...(session.speakerRoles || {}), [speaker]: role };
+    try {
+      await updateSpeakerRoles(session._id, nextRoles);
+      await loadSessions();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   return (
     <div className="mx-auto flex max-w-7xl flex-col space-y-14 p-8">
       <header className="admin-header">
@@ -239,13 +252,35 @@ const Conversation = () => {
                   )}
                   {session.transcriptStatus === "done" &&
                     (session.segments?.length ? (
-                      <div className="space-y-1 rounded-md bg-dark-400 p-2">
-                        {session.segments.map((seg, i) => (
-                          <p key={i} className="text-white">
-                            <span className="font-semibold text-green-500">{seg.speaker}: </span>
-                            {seg.text}
-                          </p>
-                        ))}
+                      <div className="space-y-3 rounded-md bg-dark-400 p-2">
+                        <div className="flex flex-wrap gap-3">
+                          {[...new Set(session.segments.map((s) => s.speaker))].map((speaker) => (
+                            <label key={speaker} className="flex items-center gap-2 text-dark-600">
+                              {speaker}
+                              <select
+                                value={session.speakerRoles?.[speaker] || ""}
+                                onChange={(e) => relabelSpeaker(session, speaker, e.target.value)}
+                                className="rounded-md border border-dark-500 bg-dark-300 px-2 py-1 text-white"
+                              >
+                                {ROLE_OPTIONS.map((role) => (
+                                  <option key={role} value={role}>
+                                    {role || "unlabeled"}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          ))}
+                        </div>
+                        <div className="space-y-1">
+                          {session.segments.map((seg, i) => (
+                            <p key={i} className="text-white">
+                              <span className="font-semibold text-green-500">
+                                {session.speakerRoles?.[seg.speaker] || seg.speaker}:{" "}
+                              </span>
+                              {seg.text}
+                            </p>
+                          ))}
+                        </div>
                       </div>
                     ) : (
                       <p className="rounded-md bg-dark-400 p-2 text-white">

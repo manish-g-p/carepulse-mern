@@ -113,4 +113,9 @@ export const getConversationAudioUrl = async (sessionId) => {
   return URL.createObjectURL(data);
 };
 
+export const updateSpeakerRoles = async (sessionId, speakerRoles) => {
+  const { data } = await api.put(`/conversations/${sessionId}/speaker-roles`, { speakerRoles });
+  return data;
+};
+
 export default api;

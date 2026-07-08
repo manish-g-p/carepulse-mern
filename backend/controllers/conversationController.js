@@ -108,6 +108,28 @@ const stopConversation = async (req, res) => {
   }
 };
 
+// PUT /api/conversations/:id/speaker-roles  { speakerRoles: { "Speaker 1": "Doctor" } }
+const updateSpeakerRoles = async (req, res) => {
+  try {
+    const { speakerRoles } = req.body;
+    if (!speakerRoles || typeof speakerRoles !== "object") {
+      return res.status(400).json({ message: "speakerRoles object is required" });
+    }
+
+    const session = await ConversationSession.findOneAndUpdate(
+      { _id: req.params.id, doctorId: req.auth.doctorId },
+      { speakerRoles },
+      { new: true }
+    );
+    if (!session) return res.status(404).json({ message: "Session not found" });
+
+    res.json(session);
+  } catch (error) {
+    console.error("updateSpeakerRoles error:", error);
+    res.status(500).json({ message: "Failed to update speaker roles" });
+  }
+};
+
 // GET /api/conversations/:id/audio  (doctor must own the session)
 const getConversationAudio = async (req, res) => {
   try {
@@ -131,4 +153,10 @@ const getConversationAudio = async (req, res) => {
   }
 };
 
-module.exports = { listConversations, startConversation, stopConversation, getConversationAudio };
+module.exports = {
+  listConversations,
+  startConversation,
+  stopConversation,
+  updateSpeakerRoles,
+  getConversationAudio,
+};

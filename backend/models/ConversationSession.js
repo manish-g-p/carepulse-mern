@@ -26,9 +26,13 @@ const ConversationSessionSchema = new mongoose.Schema(
         startMs: Number,
         endMs: Number,
         text: String,
-        speaker: String, // "Speaker 1", "Speaker 2", ... generic until Day 5's role mapping
+        speaker: String, // generic cluster label, e.g. "Speaker 1"
       },
     ],
+    // Maps a generic speaker label -> a human role, e.g. { "Speaker 1": "Doctor" }.
+    // Set by the doctor after reviewing the transcript (Day 5); segments keep
+    // their generic label so relabeling never has to touch segment data.
+    speakerRoles: { type: Map, of: String, default: {} },
   },
   { timestamps: true }
 );
