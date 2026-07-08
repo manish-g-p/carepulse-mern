@@ -42,6 +42,15 @@ const Conversation = () => {
     loadSessions();
   }, [loadSessions]);
 
+  // Transcription runs in the background after Stop; poll while anything is
+  // still processing so the transcript appears without a manual refresh.
+  useEffect(() => {
+    const stillProcessing = sessions.some((s) => s.transcriptStatus === "processing");
+    if (!stillProcessing) return undefined;
+    const interval = setInterval(loadSessions, 3000);
+    return () => clearInterval(interval);
+  }, [sessions, loadSessions]);
+
   const stopMicTracks = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
@@ -183,7 +192,8 @@ const Conversation = () => {
               {new Date(activeSession.startedAt).toLocaleTimeString()}
             </p>
             <p className="text-dark-600 text-14-regular">
-              Live transcript, speaker diarization, and translation land here over the next few days.
+              Transcription starts once you stop. Live transcript, speaker diarization, and
+              translation land here over the next few days.
             </p>
             <Button onClick={handleStop} disabled={isBusy} className="shad-danger-btn w-full">
               {isBusy ? "Stopping..." : "Stop recording"}
@@ -220,6 +230,18 @@ const Conversation = () => {
                         ▶ Play recording
                       </Button>
                     ))}
+
+                  {session.transcriptStatus === "processing" && (
+                    <p className="text-dark-600 italic">Transcribing...</p>
+                  )}
+                  {session.transcriptStatus === "failed" && (
+                    <p className="shad-error">Transcription failed.</p>
+                  )}
+                  {session.transcriptStatus === "done" && (
+                    <p className="rounded-md bg-dark-400 p-2 text-white">
+                      {session.transcript || "(no speech detected)"}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>

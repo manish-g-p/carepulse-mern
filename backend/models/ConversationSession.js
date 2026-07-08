@@ -14,6 +14,12 @@ const ConversationSessionSchema = new mongoose.Schema(
     },
     languagePair: { type: String, default: "" },
     audioObjectKey: { type: String, default: "" },
+    transcript: { type: String, default: "" },
+    transcriptStatus: {
+      type: String,
+      enum: ["none", "processing", "done", "failed"],
+      default: "none",
+    },
   },
   { timestamps: true }
 );

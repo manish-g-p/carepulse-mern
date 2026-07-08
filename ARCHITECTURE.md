@@ -80,10 +80,13 @@ history, code quality). Skipping a day and committing twice the next is complete
 
 ### Phase 1–3, broken into a 10-day sprint
 
-Tooling note: STT uses `nodejs-whisper` (npm wrapper around whisper.cpp — pure JS/C++,
-no Python needed, model downloads once and runs free/local). Diarization
-(pyannote.audio) is Python-only, so it runs as a small local FastAPI microservice the
-Node backend calls over HTTP — still $0, just two processes instead of one during dev.
+Tooling note: STT originally targeted `nodejs-whisper`, but that compiles whisper.cpp
+from source and this dev machine has no C/C++ toolchain. Switched to **prebuilt**
+whisper.cpp + ffmpeg Windows binaries (downloaded once via `npm run setup:speech` in
+`backend/`, see `backend/scripts/setupSpeechTools.js`) — still free, no compiler
+needed. Node shells out to them via `child_process`. Diarization (pyannote.audio) is
+Python-only, so it runs as a small local FastAPI microservice the Node backend calls
+over HTTP — still $0, just another process during dev.
 
 - [x] **Day 1** — `ConversationSession` model, `POST /api/conversations` (start) /
       `PUT .../:id/stop` (stop), doctor-auth-gated. Conversation page shell: search/pick
@@ -93,8 +96,9 @@ Node backend calls over HTTP — still $0, just two processes instead of one dur
       (extend the existing Multer `upload.js` `fileFilter` to accept audio mimetypes);
       store the file path on the session; add playback of the recorded clip.
       See [devlog/2026-07-08.md](devlog/2026-07-08.md).
-- [ ] **Day 3** — Wire `nodejs-whisper`: transcribe the uploaded file to plain text
-      (batch, no diarization yet), display it under the session.
+- [x] **Day 3** — Wire prebuilt whisper.cpp + ffmpeg: transcribe the uploaded file to
+      plain text (batch, no diarization yet), display it under the session.
+      See [devlog/2026-07-08.md](devlog/2026-07-08.md).
 - [ ] **Day 4** — Stand up the Python FastAPI diarization microservice (pyannote.audio,
       local venv or Docker); Node calls it with the audio file and merges its speaker
       segments with the Whisper transcript by timestamp.
