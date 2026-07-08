@@ -237,11 +237,21 @@ const Conversation = () => {
                   {session.transcriptStatus === "failed" && (
                     <p className="shad-error">Transcription failed.</p>
                   )}
-                  {session.transcriptStatus === "done" && (
-                    <p className="rounded-md bg-dark-400 p-2 text-white">
-                      {session.transcript || "(no speech detected)"}
-                    </p>
-                  )}
+                  {session.transcriptStatus === "done" &&
+                    (session.segments?.length ? (
+                      <div className="space-y-1 rounded-md bg-dark-400 p-2">
+                        {session.segments.map((seg, i) => (
+                          <p key={i} className="text-white">
+                            <span className="font-semibold text-green-500">{seg.speaker}: </span>
+                            {seg.text}
+                          </p>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="rounded-md bg-dark-400 p-2 text-white">
+                        {session.transcript || "(no speech detected)"}
+                      </p>
+                    ))}
                 </li>
               ))}
             </ul>

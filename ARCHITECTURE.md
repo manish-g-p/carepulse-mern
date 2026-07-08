@@ -84,9 +84,17 @@ Tooling note: STT originally targeted `nodejs-whisper`, but that compiles whispe
 from source and this dev machine has no C/C++ toolchain. Switched to **prebuilt**
 whisper.cpp + ffmpeg Windows binaries (downloaded once via `npm run setup:speech` in
 `backend/`, see `backend/scripts/setupSpeechTools.js`) — still free, no compiler
-needed. Node shells out to them via `child_process`. Diarization (pyannote.audio) is
-Python-only, so it runs as a small local FastAPI microservice the Node backend calls
-over HTTP — still $0, just another process during dev.
+needed. Node shells out to them via `child_process`.
+
+Diarization originally targeted pyannote.audio, but its accurate pipeline is gated on
+Hugging Face (needs an account + accepted terms + access token — a manual step, skipped
+to keep today's sprint moving). Also, Resemblyzer (the obvious open alternative) pulls
+in `webrtcvad`, which has no prebuilt Windows wheel and needs a compiler we don't have
+either. Landed on classic MFCC-feature clustering (`librosa` + `scikit-learn`, no neural
+model, no login, no compiler) — a real accuracy tradeoff vs. pyannote, but $0 and
+zero-friction. Runs as a one-shot Python script (`backend/pyservices/diarize.py`) via a
+local venv (`npm run setup:diarize`), not a persistent microservice — simpler to manage
+and matches the whisper.cpp integration pattern.
 
 - [x] **Day 1** — `ConversationSession` model, `POST /api/conversations` (start) /
       `PUT .../:id/stop` (stop), doctor-auth-gated. Conversation page shell: search/pick
@@ -99,9 +107,9 @@ over HTTP — still $0, just another process during dev.
 - [x] **Day 3** — Wire prebuilt whisper.cpp + ffmpeg: transcribe the uploaded file to
       plain text (batch, no diarization yet), display it under the session.
       See [devlog/2026-07-08.md](devlog/2026-07-08.md).
-- [ ] **Day 4** — Stand up the Python FastAPI diarization microservice (pyannote.audio,
-      local venv or Docker); Node calls it with the audio file and merges its speaker
-      segments with the Whisper transcript by timestamp.
+- [x] **Day 4** — Diarize each Whisper segment (MFCC clustering, see tooling note above)
+      and merge speaker labels into the transcript.
+      See [devlog/2026-07-08.md](devlog/2026-07-08.md).
 - [ ] **Day 5** — Map generic `Speaker 1/2` labels to Doctor/Patient/Patient Party roles;
       doctor can relabel a misidentified speaker inline; render as `Doctor: ...` /
       `Patient: ...` / `Patient Party: ...`.

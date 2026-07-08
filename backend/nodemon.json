@@ -1,0 +1,3 @@
+{
+  "ignore": ["storage/*", "bin/*", "pyservices/venv/*", "uploads/*"]
+}

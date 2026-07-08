@@ -1,21 +1,45 @@
+const fs = require("fs");
 const path = require("path");
 const ConversationSession = require("../models/ConversationSession");
-const { transcribeAudio } = require("../services/transcribeService");
+const { convertToWav, transcribeSegments } = require("../services/transcribeService");
+const { diarizeSegments } = require("../services/diarizeService");
 
 const audioDir = path.join(__dirname, "..", "storage", "audio");
 
-// Fire-and-forget: transcription can take a while, so it runs after the stop
-// response has already been sent rather than blocking the doctor's Stop click.
-const runTranscription = async (sessionId, audioFilename) => {
+// Fire-and-forget: transcription+diarization can take a while, so this runs
+// after the stop response has already been sent rather than blocking the
+// doctor's Stop click.
+const runSpeechProcessing = async (sessionId, audioFilename) => {
+  let wavPath;
   try {
-    const text = await transcribeAudio(path.join(audioDir, audioFilename));
+    wavPath = await convertToWav(path.join(audioDir, audioFilename));
+    const { segments } = await transcribeSegments(wavPath);
+
+    // Diarization is best-effort: if the tooling isn't installed, or it
+    // errors on this clip, everything just stays labeled "Speaker 1" rather
+    // than failing the whole transcript.
+    let speakerIds = null;
+    try {
+      speakerIds = await diarizeSegments(wavPath, segments, 2);
+    } catch (error) {
+      console.error("diarizeSegments error:", error);
+    }
+
+    const labeledSegments = segments.map((seg, i) => ({
+      ...seg,
+      speaker: `Speaker ${(speakerIds ? speakerIds[i] : 0) + 1}`,
+    }));
+
     await ConversationSession.findByIdAndUpdate(sessionId, {
-      transcript: text,
+      transcript: segments.map((s) => s.text).join(" ").trim(),
+      segments: labeledSegments,
       transcriptStatus: "done",
     });
   } catch (error) {
-    console.error("runTranscription error:", error);
+    console.error("runSpeechProcessing error:", error);
     await ConversationSession.findByIdAndUpdate(sessionId, { transcriptStatus: "failed" });
+  } finally {
+    if (wavPath) fs.rmSync(wavPath, { force: true });
   }
 };
 
@@ -76,7 +100,7 @@ const stopConversation = async (req, res) => {
     res.json(session);
 
     if (req.file) {
-      runTranscription(session._id, req.file.filename);
+      runSpeechProcessing(session._id, req.file.filename);
     }
   } catch (error) {
     console.error("stopConversation error:", error);

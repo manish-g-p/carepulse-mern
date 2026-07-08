@@ -20,6 +20,15 @@ const ConversationSessionSchema = new mongoose.Schema(
       enum: ["none", "processing", "done", "failed"],
       default: "none",
     },
+    segments: [
+      {
+        _id: false,
+        startMs: Number,
+        endMs: Number,
+        text: String,
+        speaker: String, // "Speaker 1", "Speaker 2", ... generic until Day 5's role mapping
+      },
+    ],
   },
   { timestamps: true }
 );

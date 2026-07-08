@@ -23,31 +23,38 @@ const run = (cmd, args) =>
 
 // whisper.cpp's bundled decoder doesn't read WebM/Opus (only flac/mp3/ogg/wav),
 // so the browser's MediaRecorder output has to be converted to a plain WAV first.
+// Also used as-is by diarizeService, which needs the same 16kHz mono WAV.
 const convertToWav = async (audioPath) => {
   const wavPath = audioPath.slice(0, -path.extname(audioPath).length) + ".wav";
   await run(FFMPEG_EXE, ["-y", "-i", audioPath, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", wavPath]);
   return wavPath;
 };
 
-// Transcribes an audio file to plain text. Returns "" if there was no
-// intelligible speech. Cleans up the intermediate WAV/txt files it creates.
-const transcribeAudio = async (audioPath) => {
+// Transcribes a WAV file to timestamped segments via whisper.cpp's JSON output.
+// Returns { text, segments: [{ startMs, endMs, text }] }.
+const transcribeSegments = async (wavPath) => {
   if (!isSpeechToolingReady()) {
     throw new Error("Speech tooling not installed. Run: npm run setup:speech (in backend/)");
   }
 
-  const wavPath = await convertToWav(audioPath);
-  const outBase = wavPath.replace(/\.wav$/, "");
-  const txtPath = `${outBase}.txt`;
+  const outBase = wavPath.slice(0, -path.extname(wavPath).length);
+  const jsonPath = `${outBase}.json`;
 
   try {
-    await run(WHISPER_EXE, ["-m", WHISPER_MODEL, "-f", wavPath, "-otxt", "-of", outBase, "-l", "auto", "-np"]);
-    const text = fs.existsSync(txtPath) ? fs.readFileSync(txtPath, "utf-8").trim() : "";
-    return text;
+    await run(WHISPER_EXE, ["-m", WHISPER_MODEL, "-f", wavPath, "-oj", "-of", outBase, "-l", "auto", "-np"]);
+    if (!fs.existsSync(jsonPath)) return { text: "", segments: [] };
+
+    const parsed = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+    const segments = (parsed.transcription || []).map((seg) => ({
+      startMs: seg.offsets.from,
+      endMs: seg.offsets.to,
+      text: seg.text.trim(),
+    }));
+    const text = segments.map((s) => s.text).join(" ").trim();
+    return { text, segments };
   } finally {
-    fs.rmSync(wavPath, { force: true });
-    fs.rmSync(txtPath, { force: true });
+    fs.rmSync(jsonPath, { force: true });
   }
 };
 
-module.exports = { transcribeAudio, isSpeechToolingReady };
+module.exports = { convertToWav, transcribeSegments, isSpeechToolingReady };

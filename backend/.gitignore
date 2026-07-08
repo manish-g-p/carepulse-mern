@@ -5,3 +5,5 @@ uploads/*
 storage/*
 !storage/.gitkeep
 bin/
+pyservices/venv/
+pyservices/__pycache__/
