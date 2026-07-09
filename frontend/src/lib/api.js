@@ -123,6 +123,16 @@ export const updateSpeakerRoles = async (sessionId, speakerRoles) => {
   return data;
 };
 
+export const getTranslationLanguages = async () => {
+  const { data } = await api.get("/conversations/languages");
+  return data;
+};
+
+export const translateConversation = async (sessionId, source, target) => {
+  const { data } = await api.post(`/conversations/${sessionId}/translate`, { source, target });
+  return data;
+};
+
 // Fetches the transcript .xlsx and triggers a browser download (a plain
 // <a href> can't carry the auth header, so this fetches as a blob first).
 export const downloadConversationExcel = async (sessionId, patientName) => {

@@ -8,6 +8,7 @@ const { convertToWav, transcribeSegments } = require("../services/transcribeServ
 const { diarizeSegments } = require("../services/diarizeService");
 const { buildTranscriptWorkbook } = require("../services/excelService");
 const { encryptBuffer, decryptBuffer } = require("../services/audioCryptoService");
+const { isTranslationAvailable, listLanguages, translateText } = require("../services/translateService");
 
 const audioDir = path.join(__dirname, "..", "storage", "audio");
 if (!fs.existsSync(audioDir)) fs.mkdirSync(audioDir, { recursive: true });
@@ -172,6 +173,56 @@ const updateSpeakerRoles = async (req, res) => {
   }
 };
 
+// POST /api/conversations/:id/translate  { source, target }
+// Translates every transcript segment via the local LibreTranslate instance
+// and stores the result on each segment, so the translation persists with the
+// session (and lands in the Excel export) rather than being display-only.
+const translateConversation = async (req, res) => {
+  try {
+    const { source, target } = req.body;
+    if (!source || !target) {
+      return res.status(400).json({ message: "source and target language codes are required" });
+    }
+
+    const session = await ConversationSession.findOne({
+      _id: req.params.id,
+      doctorId: req.auth.doctorId,
+    });
+    if (!session) return res.status(404).json({ message: "Session not found" });
+    if (!session.segments?.length) {
+      return res.status(404).json({ message: "No transcript to translate yet" });
+    }
+
+    if (!(await isTranslationAvailable())) {
+      return res.status(503).json({
+        message: "Translation service is not running. Start it with: docker start libretranslate",
+      });
+    }
+
+    for (const seg of session.segments) {
+      seg.translatedText = await translateText(seg.text, source, target);
+    }
+    session.languagePair = `${source}->${target}`;
+    await session.save();
+
+    res.json(session);
+  } catch (error) {
+    console.error("translateConversation error:", error);
+    res.status(500).json({ message: "Failed to translate the transcript" });
+  }
+};
+
+// GET /api/conversations/languages  (available translation languages)
+const getTranslationLanguages = async (req, res) => {
+  try {
+    if (!(await isTranslationAvailable())) return res.json([]);
+    res.json(await listLanguages());
+  } catch (error) {
+    console.error("getTranslationLanguages error:", error);
+    res.json([]);
+  }
+};
+
 // GET /api/conversations/:id/excel  (doctor must own the session)
 const getConversationExcel = async (req, res) => {
   try {
@@ -256,6 +307,8 @@ module.exports = {
   startConversation,
   stopConversation,
   updateSpeakerRoles,
+  translateConversation,
+  getTranslationLanguages,
   getConversationExcel,
   getConversationAudio,
   getConversationAudit,

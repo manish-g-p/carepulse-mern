@@ -24,17 +24,25 @@ const buildTranscriptWorkbook = (session) => {
   sheet.getRow(2).font = { bold: true };
   sheet.addRow([]);
 
-  const headerRow = sheet.addRow(["Time", "Speaker", "Statement"]);
+  const hasTranslation = (session.segments || []).some((seg) => seg.translatedText);
+  const headers = ["Time", "Speaker", "Statement"];
+  if (hasTranslation) headers.push(`Translation (${session.languagePair})`);
+  const headerRow = sheet.addRow(headers);
   headerRow.font = { bold: true };
 
   const roles = session.speakerRoles instanceof Map ? session.speakerRoles : new Map(Object.entries(session.speakerRoles || {}));
 
   for (const seg of session.segments || []) {
-    sheet.addRow([formatElapsed(seg.startMs), roles.get(seg.speaker) || seg.speaker, seg.text]);
+    const row = [formatElapsed(seg.startMs), roles.get(seg.speaker) || seg.speaker, seg.text];
+    if (hasTranslation) row.push(seg.translatedText || "");
+    sheet.addRow(row);
   }
 
-  sheet.columns = [{ width: 10 }, { width: 20 }, { width: 90 }];
+  sheet.columns = hasTranslation
+    ? [{ width: 10 }, { width: 20 }, { width: 60 }, { width: 60 }]
+    : [{ width: 10 }, { width: 20 }, { width: 90 }];
   sheet.getColumn(3).alignment = { wrapText: true, vertical: "top" };
+  if (hasTranslation) sheet.getColumn(4).alignment = { wrapText: true, vertical: "top" };
 
   return workbook;
 };

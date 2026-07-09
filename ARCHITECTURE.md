@@ -11,7 +11,7 @@ source or a perpetual free tier that never asks for a card.
 |---|---|---|
 | Speech-to-text | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (Whisper, self-hosted) | Runs on your own CPU/laptop, no per-minute cost. `small`/`base` model is fast enough for near-real-time on CPU. |
 | Speaker diarization | [pyannote.audio](https://github.com/pyannote/pyannote-audio) 3.1 | Free, open weights (accept terms once on Hugging Face, no payment). Distinguishes Doctor/Patient/Attendant as Speaker 1/2/3. |
-| Translation | [LibreTranslate](https://github.com/LibreTranslate/LibreTranslate) (self-hosted, Argos Translate models) | Fully offline-capable, no API key, no rate-limited paid tier. |
+| Translation | [NLLB-200](https://huggingface.co/facebook/nllb-200-distilled-600M) distilled 600M (self-hosted via a local Flask server) | Free, open-weight, ungated. Covers English/Hindi/Kannada. Switched from LibreTranslate, whose Argos catalog lacks Kannada. |
 | Excel export | `exceljs` (npm) | Free library, already MIT licensed. |
 | Object storage | Local encrypted disk now → [MinIO](https://min.io/) (self-hosted, Docker) later | Free forever since you run it yourself; no AWS S3 bill. |
 | Message broker (Phase 4) | RabbitMQ (Docker, free) | Only stood up when you actually split services out. |
@@ -135,9 +135,13 @@ and matches the whisper.cpp integration pattern.
       Extracted the transcript/playback/relabel/Excel UI into a shared `SessionTranscript`
       component used by both the Conversation page's inline list and the new detail view.
       See [devlog/2026-07-08.md](devlog/2026-07-08.md).
-- [ ] **Day 10** — Stand up LibreTranslate locally (Docker); add a language-pair picker
-      and a "translate" action per transcript segment, reusing the same session (this is
-      the seed of Phase 3, not the full real-time version).
+- [x] **Day 10** — Local translation server + language-pair picker + Translate action per
+      session; translations persist on each segment (and flow into the Excel export),
+      reusing the same session (this is the seed of Phase 3, not the full real-time
+      version). Originally built on LibreTranslate (Docker), then **switched to NLLB-200**
+      (local Flask server, `npm run setup:translate`) because LibreTranslate's Argos
+      catalog has no Kannada, which the user needs — NLLB covers en/hi/kn.
+      See [devlog/2026-07-08.md](devlog/2026-07-08.md).
 
 Each day's box maps to roughly one commit. If a day runs long or short, that's normal —
 push what's real for that day rather than padding it out.

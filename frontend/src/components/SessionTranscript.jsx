@@ -1,17 +1,34 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import Button from "./ui/Button";
-import { downloadConversationExcel, getConversationAudioUrl, updateSpeakerRoles } from "../lib/api";
+import {
+  downloadConversationExcel,
+  getConversationAudioUrl,
+  getTranslationLanguages,
+  translateConversation,
+  updateSpeakerRoles,
+} from "../lib/api";
 
 const ROLE_OPTIONS = ["", "Doctor", "Patient", "Patient Party 1", "Patient Party 2"];
 
 // Full detail view for one conversation session: playback, transcript with
-// per-speaker role relabeling, and Excel export. Used both inline in the
-// Conversation page's "Past sessions" list and on the dashboard's session
-// detail view (Day 9), so it manages its own audio-blob state rather than
-// relying on a parent-held map keyed by session id.
+// per-speaker role relabeling, translation, and Excel export. Used both
+// inline in the Conversation page's "Past sessions" list and on the
+// dashboard's session detail view (Day 9), so it manages its own audio-blob
+// state rather than relying on a parent-held map keyed by session id.
 const SessionTranscript = ({ session, onUpdate }) => {
   const [audioUrl, setAudioUrl] = useState(null);
+  const [languages, setLanguages] = useState([]);
+  const [sourceLang, setSourceLang] = useState("en");
+  const [targetLang, setTargetLang] = useState("");
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translateError, setTranslateError] = useState("");
+
+  // Empty list simply hides the translate controls -- the endpoint returns []
+  // when the local translation server isn't running.
+  useEffect(() => {
+    getTranslationLanguages().then(setLanguages).catch(() => setLanguages([]));
+  }, []);
 
   const playRecording = async () => {
     if (audioUrl) return;
@@ -41,6 +58,19 @@ const SessionTranscript = ({ session, onUpdate }) => {
     }
   };
 
+  const translate = async () => {
+    if (!sourceLang || !targetLang) return;
+    setIsTranslating(true);
+    setTranslateError("");
+    try {
+      await translateConversation(session._id, sourceLang, targetLang);
+      onUpdate?.();
+    } catch (error) {
+      setTranslateError(error.response?.data?.message || "Translation failed.");
+    }
+    setIsTranslating(false);
+  };
+
   return (
     <div className="flex flex-col gap-2 rounded-md border border-dark-500 p-3 text-14-regular">
       <div className="flex justify-between">
@@ -64,9 +94,49 @@ const SessionTranscript = ({ session, onUpdate }) => {
       {session.transcriptStatus === "done" &&
         (session.segments?.length ? (
           <div className="space-y-3 rounded-md bg-dark-400 p-2">
-            <Button variant="outline" onClick={downloadExcel} className="w-fit text-14-regular">
-              ⬇ Download Excel
-            </Button>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="outline" onClick={downloadExcel} className="w-fit text-14-regular">
+                ⬇ Download Excel
+              </Button>
+              {languages.length > 0 && (
+                <>
+                  <select
+                    value={sourceLang}
+                    onChange={(e) => setSourceLang(e.target.value)}
+                    className="rounded-md border border-dark-500 bg-dark-300 px-2 py-1 text-white"
+                  >
+                    {languages.map((lang) => (
+                      <option key={lang.code} value={lang.code}>
+                        from {lang.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={targetLang}
+                    onChange={(e) => setTargetLang(e.target.value)}
+                    className="rounded-md border border-dark-500 bg-dark-300 px-2 py-1 text-white"
+                  >
+                    <option value="">to...</option>
+                    {languages
+                      .filter((lang) => lang.code !== sourceLang)
+                      .map((lang) => (
+                        <option key={lang.code} value={lang.code}>
+                          to {lang.name}
+                        </option>
+                      ))}
+                  </select>
+                  <Button
+                    variant="outline"
+                    onClick={translate}
+                    disabled={isTranslating || !targetLang}
+                    className="w-fit text-14-regular"
+                  >
+                    {isTranslating ? "Translating..." : "🌐 Translate"}
+                  </Button>
+                </>
+              )}
+            </div>
+            {translateError && <p className="shad-error">{translateError}</p>}
             <div className="flex flex-wrap gap-3">
               {[...new Set(session.segments.map((s) => s.speaker))].map((speaker) => (
                 <label key={speaker} className="flex items-center gap-2 text-dark-600">
@@ -85,14 +155,19 @@ const SessionTranscript = ({ session, onUpdate }) => {
                 </label>
               ))}
             </div>
-            <div className="space-y-1">
+            <div className="space-y-2">
               {session.segments.map((seg, i) => (
-                <p key={i} className="text-white">
-                  <span className="font-semibold text-green-500">
-                    {session.speakerRoles?.[seg.speaker] || seg.speaker}:{" "}
-                  </span>
-                  {seg.text}
-                </p>
+                <div key={i}>
+                  <p className="text-white">
+                    <span className="font-semibold text-green-500">
+                      {session.speakerRoles?.[seg.speaker] || seg.speaker}:{" "}
+                    </span>
+                    {seg.text}
+                  </p>
+                  {seg.translatedText && (
+                    <p className="pl-4 text-dark-600 italic">{seg.translatedText}</p>
+                  )}
+                </div>
               ))}
             </div>
           </div>

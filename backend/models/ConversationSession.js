@@ -12,6 +12,8 @@ const ConversationSessionSchema = new mongoose.Schema(
       given: { type: Boolean, default: false },
       at: { type: Date },
     },
+    // e.g. "en->hi": the language the transcript was translated into (target),
+    // set when the doctor runs a translation on the session.
     languagePair: { type: String, default: "" },
     audioObjectKey: { type: String, default: "" },
     transcript: { type: String, default: "" },
@@ -26,6 +28,7 @@ const ConversationSessionSchema = new mongoose.Schema(
         startMs: Number,
         endMs: Number,
         text: String,
+        translatedText: { type: String, default: "" },
         speaker: String, // generic cluster label, e.g. "Speaker 1"
       },
     ],
