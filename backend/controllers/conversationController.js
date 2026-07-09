@@ -9,9 +9,18 @@ const { diarizeSegments } = require("../services/diarizeService");
 const { buildTranscriptWorkbook } = require("../services/excelService");
 const { encryptBuffer, decryptBuffer } = require("../services/audioCryptoService");
 const { isTranslationAvailable, listLanguages, translateText } = require("../services/translateService");
+const { extractKeyItems } = require("../services/clinicalExtract");
 
 const audioDir = path.join(__dirname, "..", "storage", "audio");
 if (!fs.existsSync(audioDir)) fs.mkdirSync(audioDir, { recursive: true });
+
+// Serializes a session the same way res.json(doc) would (Mongoose toJSON, which
+// flattens the speakerRoles Map) and attaches computed keyItems. Computed on
+// read rather than stored, so it always reflects the current transcript.
+const withKeyItems = (session) => ({
+  ...session.toJSON(),
+  keyItems: extractKeyItems(session.segments),
+});
 
 // Fire-and-forget: transcription+diarization can take a while, so this runs
 // after the stop response has already been sent rather than blocking the
@@ -65,7 +74,7 @@ const listConversations = async (req, res) => {
     const sessions = await ConversationSession.find({ doctorId: req.auth.doctorId }).sort({
       createdAt: -1,
     });
-    res.json(sessions);
+    res.json(sessions.map(withKeyItems));
   } catch (error) {
     console.error("listConversations error:", error);
     res.status(500).json({ message: "Failed to list conversations" });
@@ -80,7 +89,7 @@ const getConversation = async (req, res) => {
       doctorId: req.auth.doctorId,
     });
     if (!session) return res.status(404).json({ message: "Session not found" });
-    res.json(session);
+    res.json(withKeyItems(session));
   } catch (error) {
     console.error("getConversation error:", error);
     res.status(500).json({ message: "Failed to load session" });

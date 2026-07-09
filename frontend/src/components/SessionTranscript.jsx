@@ -137,6 +137,35 @@ const SessionTranscript = ({ session, onUpdate }) => {
               )}
             </div>
             {translateError && <p className="shad-error">{translateError}</p>}
+
+            {session.keyItems &&
+              (session.keyItems.medications.length ||
+                session.keyItems.timings.length ||
+                session.keyItems.symptoms.length) > 0 && (
+                <div className="space-y-2 rounded-md border border-dark-500 p-2">
+                  <p className="text-14-medium text-white">Key items</p>
+                  {[
+                    ["💊 Medications", session.keyItems.medications, "bg-green-600"],
+                    ["⏰ Dosage & timing", session.keyItems.timings, "bg-blue-600"],
+                    ["🩺 Symptoms", session.keyItems.symptoms, "bg-red-600"],
+                  ].map(([label, items, color]) =>
+                    items.length ? (
+                      <div key={label} className="flex flex-wrap items-center gap-2">
+                        <span className="text-dark-600">{label}:</span>
+                        {items.map((item) => (
+                          <span
+                            key={item}
+                            className={`rounded-full px-2 py-0.5 text-12-semibold text-white ${color}`}
+                          >
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null
+                  )}
+                </div>
+              )}
+
             <div className="flex flex-wrap gap-3">
               {[...new Set(session.segments.map((s) => s.speaker))].map((speaker) => (
                 <label key={speaker} className="flex items-center gap-2 text-dark-600">

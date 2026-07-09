@@ -158,7 +158,10 @@ push what's real for that day rather than padding it out.
 - [ ] API Gateway (Nginx) in front of everything
 
 ### Phase 6 — Extras
-- [ ] Medication/symptom keyword highlighting in the transcript (doctor confirms, never auto-decides)
+- [x] Medication/symptom keyword highlighting — **Day 11**: keyword/pattern extraction of
+      medications, dosage/timing, and symptoms into a "Key items" summary (UI chips + Excel
+      block). First pass is deterministic keyword/regex (doctor confirms, never auto-decides);
+      could later add inline highlighting or an NLP model. See [devlog/2026-07-08.md](devlog/2026-07-08.md).
 - [ ] Patient portal: view own conversation history
 - [ ] Medication-reminder notifications derived from the transcript
 - [ ] Multi-speaker sessions (e.g. a nurse also present)

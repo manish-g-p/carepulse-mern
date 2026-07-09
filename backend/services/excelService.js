@@ -1,4 +1,5 @@
 const ExcelJS = require("exceljs");
+const { extractKeyItems } = require("./clinicalExtract");
 
 const formatElapsed = (ms) => {
   const totalSeconds = Math.floor(ms / 1000);
@@ -22,9 +23,31 @@ const buildTranscriptWorkbook = (session) => {
   sheet.addRow(["Date", new Date(session.startedAt).toLocaleString()]);
   sheet.getRow(1).font = { bold: true };
   sheet.getRow(2).font = { bold: true };
-  sheet.addRow([]);
 
   const hasTranslation = (session.segments || []).some((seg) => seg.translatedText);
+  const lastCol = hasTranslation ? 4 : 3;
+
+  // Key items summary at the top -- the medications, timing, and symptoms a
+  // patient most needs from this sheet. Only categories with hits are shown.
+  const keyItems = extractKeyItems(session.segments || []);
+  const summary = [
+    ["Medications", keyItems.medications],
+    ["Dosage & timing", keyItems.timings],
+    ["Symptoms", keyItems.symptoms],
+  ].filter(([, items]) => items.length);
+
+  if (summary.length) {
+    sheet.addRow([]);
+    sheet.addRow(["Key items"]).font = { bold: true };
+    for (const [label, items] of summary) {
+      const row = sheet.addRow([label, items.join(", ")]);
+      row.getCell(1).font = { bold: true };
+      sheet.mergeCells(row.number, 2, row.number, lastCol);
+      row.getCell(2).alignment = { wrapText: true, vertical: "top" };
+    }
+  }
+  sheet.addRow([]);
+
   const headers = ["Time", "Speaker", "Statement"];
   if (hasTranslation) headers.push(`Translation (${session.languagePair})`);
   const headerRow = sheet.addRow(headers);
