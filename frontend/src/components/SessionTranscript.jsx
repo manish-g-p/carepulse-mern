@@ -20,6 +20,36 @@ const ACTION_LABELS = {
   "download-excel": "Excel downloaded",
 };
 
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Maps each extracted key-item phrase to its category highlight colour, so the
+// same phrases shown as chips also get highlighted inline in the transcript.
+const buildPhraseColors = (keyItems) => {
+  const colors = new Map(); // lowercased phrase -> tailwind bg class
+  (keyItems?.medications || []).forEach((p) => colors.set(p.toLowerCase(), "bg-green-600/40"));
+  (keyItems?.timings || []).forEach((p) => colors.set(p.toLowerCase(), "bg-blue-600/40"));
+  (keyItems?.symptoms || []).forEach((p) => colors.set(p.toLowerCase(), "bg-red-600/40"));
+  return colors;
+};
+
+// Splits text on the known key-item phrases (longest first, case-insensitive)
+// and wraps each match in a colour-tinted <mark>. Returns an array of nodes.
+const highlightText = (text, phraseColors) => {
+  if (!phraseColors.size) return text;
+  const phrases = [...phraseColors.keys()].sort((a, b) => b.length - a.length);
+  const re = new RegExp(`(${phrases.map(escapeRegex).join("|")})`, "gi");
+  return text.split(re).map((part, i) => {
+    const color = phraseColors.get(part.toLowerCase());
+    return color ? (
+      <mark key={i} className={`rounded px-1 text-white ${color}`}>
+        {part}
+      </mark>
+    ) : (
+      part
+    );
+  });
+};
+
 // Full detail view for one conversation session: playback, transcript with
 // per-speaker role relabeling, translation, and Excel export. Used both
 // inline in the Conversation page's "Past sessions" list and on the
@@ -33,6 +63,8 @@ const SessionTranscript = ({ session, onUpdate }) => {
   const [isTranslating, setIsTranslating] = useState(false);
   const [translateError, setTranslateError] = useState("");
   const [auditLog, setAuditLog] = useState(null); // null = not loaded yet
+
+  const phraseColors = buildPhraseColors(session.keyItems);
 
   // Empty list simply hides the translate controls -- the endpoint returns []
   // when the local translation server isn't running.
@@ -214,7 +246,7 @@ const SessionTranscript = ({ session, onUpdate }) => {
                     <span className="font-semibold text-green-500">
                       {session.speakerRoles?.[seg.speaker] || seg.speaker}:{" "}
                     </span>
-                    {seg.text}
+                    {highlightText(seg.text, phraseColors)}
                   </p>
                   {seg.translatedText && (
                     <p className="pl-4 text-dark-600 italic">{seg.translatedText}</p>
