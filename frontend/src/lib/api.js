@@ -121,6 +121,17 @@ export const stopConversation = async (sessionId, audioBlob) => {
   return data;
 };
 
+// Posts the audio-recorded-so-far for a quick transcription pass; returns the
+// current live transcript text (transient -- nothing is stored server-side).
+export const transcribeLiveChunk = async (sessionId, audioBlob) => {
+  const formData = new FormData();
+  formData.append("audio", audioBlob, "live.webm");
+  const { data } = await api.post(`/conversations/${sessionId}/live`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data.transcript;
+};
+
 // Fetches the recorded audio through the authenticated route and returns a
 // blob URL suitable for an <audio> element's src.
 export const getConversationAudioUrl = async (sessionId) => {

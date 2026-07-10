@@ -4,7 +4,18 @@ import { Link } from "react-router-dom";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import SessionTranscript from "../components/SessionTranscript";
-import { listConversations, lookupPatientByEmail, startConversation, stopConversation } from "../lib/api";
+import {
+  listConversations,
+  lookupPatientByEmail,
+  startConversation,
+  stopConversation,
+  transcribeLiveChunk,
+} from "../lib/api";
+
+// How often (ms) the accumulating recording is sent for a live-transcript
+// pass while recording. Whisper re-transcribes the whole clip each time, so
+// keep this coarse enough that passes don't pile up on CPU.
+const LIVE_TRANSCRIBE_INTERVAL_MS = 5000;
 
 const Conversation = () => {
   const [email, setEmail] = useState("");
@@ -21,9 +32,13 @@ const Conversation = () => {
 
   const [sessions, setSessions] = useState([]);
 
+  const [liveTranscript, setLiveTranscript] = useState("");
+
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const streamRef = useRef(null);
+  const liveIntervalRef = useRef(null);
+  const livePendingRef = useRef(false);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -51,6 +66,33 @@ const Conversation = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
   };
+
+  const stopLiveLoop = () => {
+    if (liveIntervalRef.current) clearInterval(liveIntervalRef.current);
+    liveIntervalRef.current = null;
+    livePendingRef.current = false;
+  };
+
+  // Periodically sends the audio-so-far for a quick transcription pass so the
+  // transcript fills in while the doctor is still recording. Skips a tick if
+  // the previous pass hasn't come back yet (whisper on CPU can be slower than
+  // the interval), and never lets a failed pass interrupt the recording.
+  const startLiveLoop = (sessionId) => {
+    liveIntervalRef.current = setInterval(async () => {
+      if (livePendingRef.current || chunksRef.current.length === 0) return;
+      livePendingRef.current = true;
+      try {
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const text = await transcribeLiveChunk(sessionId, blob);
+        setLiveTranscript(text);
+      } catch (error) {
+        console.error("live transcription pass failed:", error);
+      }
+      livePendingRef.current = false;
+    }, LIVE_TRANSCRIBE_INTERVAL_MS);
+  };
+
+  useEffect(() => stopLiveLoop, []); // clear the loop if the page unmounts mid-recording
 
   const findPatient = async () => {
     setIsLookingUp(true);
@@ -89,7 +131,12 @@ const Conversation = () => {
 
       const session = await startConversation(patient.userId, patient.name, consentGiven, numSpeakers);
       setActiveSession(session);
-      recorder.start();
+      setLiveTranscript("");
+      // 1s timeslice so chunks accumulate during recording -- without it,
+      // ondataavailable only fires at stop and there'd be nothing to send
+      // for the live transcript passes.
+      recorder.start(1000);
+      startLiveLoop(session._id);
       await loadSessions();
     } catch (error) {
       stopMicTracks();
@@ -117,6 +164,7 @@ const Conversation = () => {
     if (!activeSession) return;
     setIsBusy(true);
     setActionError("");
+    stopLiveLoop();
     try {
       const audioBlob = await stopRecorderAndGetBlob();
       stopMicTracks();
@@ -125,6 +173,7 @@ const Conversation = () => {
       setPatient(null);
       setEmail("");
       setConsentGiven(false);
+      setLiveTranscript("");
       await loadSessions();
     } catch (error) {
       setActionError(error.response?.data?.message || "Failed to stop the conversation.");
@@ -199,14 +248,21 @@ const Conversation = () => {
         )}
 
         {activeSession && (
-          <section className="max-w-md space-y-4 rounded-md border border-dark-500 p-4">
+          <section className="max-w-2xl space-y-4 rounded-md border border-dark-500 p-4">
             <p className="text-14-medium">
               🔴 Recording with {activeSession.patientName} — started{" "}
               {new Date(activeSession.startedAt).toLocaleTimeString()}
             </p>
-            <p className="text-dark-600 text-14-regular">
-              Transcription starts once you stop. Live transcript, speaker diarization, and
-              translation land here over the next few days.
+            <div className="min-h-[80px] rounded-md bg-dark-400 p-3 text-14-regular">
+              {liveTranscript ? (
+                <p className="text-white">{liveTranscript}</p>
+              ) : (
+                <p className="text-dark-600 italic">Listening… the transcript appears here as you speak.</p>
+              )}
+            </div>
+            <p className="text-dark-600 text-12-regular">
+              Live view updates every few seconds. Speaker labels and the final transcript are
+              produced when you stop.
             </p>
             <Button onClick={handleStop} disabled={isBusy} className="shad-danger-btn w-full">
               {isBusy ? "Stopping..." : "Stop recording"}

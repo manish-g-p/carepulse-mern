@@ -7,6 +7,7 @@ const {
   deleteConversation,
   startConversation,
   stopConversation,
+  transcribeLive,
   updateSpeakerRoles,
   translateConversation,
   getTranslationLanguages,
@@ -24,6 +25,7 @@ router.post("/", startConversation);
 // Must come before "/:id" so "languages" isn't swallowed as a session id.
 router.get("/languages", getTranslationLanguages);
 router.put("/:id/stop", uploadAudio.single("audio"), stopConversation);
+router.post("/:id/live", uploadAudio.single("audio"), transcribeLive);
 router.put("/:id/speaker-roles", updateSpeakerRoles);
 router.post("/:id/translate", translateConversation);
 router.get("/:id/excel", getConversationExcel);

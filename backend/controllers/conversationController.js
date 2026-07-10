@@ -186,6 +186,37 @@ const stopConversation = async (req, res) => {
   }
 };
 
+// POST /api/conversations/:id/live  (multipart/form-data, field: audio)
+// Transcribes the audio-so-far during recording and returns the current text,
+// so the doctor sees a live transcript. This is best-effort and transient:
+// no diarization, nothing saved or encrypted, no audit entry -- the real
+// transcript+diarization still happens on Stop from the full recording. The
+// browser posts the accumulating clip every few seconds while recording.
+const transcribeLive = async (req, res) => {
+  let tmpWebm;
+  let wavPath;
+  try {
+    const session = await ConversationSession.findOne({
+      _id: req.params.id,
+      doctorId: req.auth.doctorId,
+    });
+    if (!session) return res.status(404).json({ message: "Session not found" });
+    if (!req.file) return res.status(400).json({ message: "audio is required" });
+
+    tmpWebm = path.join(audioDir, `live-${Date.now()}-${crypto.randomBytes(6).toString("hex")}.webm`);
+    fs.writeFileSync(tmpWebm, req.file.buffer);
+    wavPath = await convertToWav(tmpWebm);
+    const { text } = await transcribeSegments(wavPath);
+    res.json({ transcript: text });
+  } catch (error) {
+    console.error("transcribeLive error:", error);
+    res.status(500).json({ message: "Live transcription failed" });
+  } finally {
+    if (tmpWebm) fs.rmSync(tmpWebm, { force: true });
+    if (wavPath) fs.rmSync(wavPath, { force: true });
+  }
+};
+
 // PUT /api/conversations/:id/speaker-roles  { speakerRoles: { "Speaker 1": "Doctor" } }
 const updateSpeakerRoles = async (req, res) => {
   try {
@@ -342,6 +373,7 @@ module.exports = {
   deleteConversation,
   startConversation,
   stopConversation,
+  transcribeLive,
   updateSpeakerRoles,
   translateConversation,
   getTranslationLanguages,
