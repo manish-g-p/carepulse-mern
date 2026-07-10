@@ -123,6 +123,11 @@ export const updateSpeakerRoles = async (sessionId, speakerRoles) => {
   return data;
 };
 
+export const getConversationAudit = async (sessionId) => {
+  const { data } = await api.get(`/conversations/${sessionId}/audit`);
+  return data;
+};
+
 export const getTranslationLanguages = async () => {
   const { data } = await api.get("/conversations/languages");
   return data;

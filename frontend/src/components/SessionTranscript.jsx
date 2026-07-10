@@ -4,12 +4,21 @@ import Button from "./ui/Button";
 import {
   downloadConversationExcel,
   getConversationAudioUrl,
+  getConversationAudit,
   getTranslationLanguages,
   translateConversation,
   updateSpeakerRoles,
 } from "../lib/api";
 
 const ROLE_OPTIONS = ["", "Doctor", "Patient", "Patient Party 1", "Patient Party 2"];
+
+// Raw audit action -> readable label for the activity log.
+const ACTION_LABELS = {
+  start: "Recording started",
+  stop: "Recording stopped",
+  "download-audio": "Audio downloaded",
+  "download-excel": "Excel downloaded",
+};
 
 // Full detail view for one conversation session: playback, transcript with
 // per-speaker role relabeling, translation, and Excel export. Used both
@@ -23,6 +32,7 @@ const SessionTranscript = ({ session, onUpdate }) => {
   const [targetLang, setTargetLang] = useState("");
   const [isTranslating, setIsTranslating] = useState(false);
   const [translateError, setTranslateError] = useState("");
+  const [auditLog, setAuditLog] = useState(null); // null = not loaded yet
 
   // Empty list simply hides the translate controls -- the endpoint returns []
   // when the local translation server isn't running.
@@ -55,6 +65,19 @@ const SessionTranscript = ({ session, onUpdate }) => {
       await downloadConversationExcel(session._id, session.patientName);
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  const toggleAuditLog = async () => {
+    if (auditLog !== null) {
+      setAuditLog(null); // collapse
+      return;
+    }
+    try {
+      setAuditLog(await getConversationAudit(session._id));
+    } catch (error) {
+      console.error(error);
+      setAuditLog([]);
     }
   };
 
@@ -205,6 +228,26 @@ const SessionTranscript = ({ session, onUpdate }) => {
             {session.transcript || "(no speech detected)"}
           </p>
         ))}
+
+      <div>
+        <button onClick={toggleAuditLog} className="text-14-regular text-green-500">
+          {auditLog !== null ? "Hide activity log" : "Show activity log"}
+        </button>
+        {auditLog !== null && (
+          <ul className="mt-2 space-y-1 rounded-md border border-dark-500 p-2 text-14-regular">
+            {auditLog.length === 0 ? (
+              <li className="text-dark-600">No activity recorded.</li>
+            ) : (
+              auditLog.map((entry) => (
+                <li key={entry._id} className="flex justify-between text-dark-600">
+                  <span className="text-white">{ACTION_LABELS[entry.action] || entry.action}</span>
+                  <span>{new Date(entry.at).toLocaleString()}</span>
+                </li>
+              ))
+            )}
+          </ul>
+        )}
+      </div>
     </div>
   );
 };
