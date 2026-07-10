@@ -100,6 +100,20 @@ const SessionTranscript = ({ session, onUpdate }) => {
     }
   };
 
+  // Reads a translated line aloud in the target language via the browser's
+  // built-in speech synthesis -- the "hear the translation" half of the
+  // original request. Uses whatever voice the OS has for that language; if
+  // none, the browser falls back to its default.
+  const speak = (text) => {
+    if (!("speechSynthesis" in window)) return;
+    const target = (session.languagePair || "").split("->")[1];
+    const langTag = { en: "en-US", hi: "hi-IN", kn: "kn-IN" }[target] || "en-US";
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = langTag;
+    window.speechSynthesis.speak(utterance);
+  };
+
   const toggleAuditLog = async () => {
     if (auditLog !== null) {
       setAuditLog(null); // collapse
@@ -249,7 +263,16 @@ const SessionTranscript = ({ session, onUpdate }) => {
                     {highlightText(seg.text, phraseColors)}
                   </p>
                   {seg.translatedText && (
-                    <p className="pl-4 text-dark-600 italic">{seg.translatedText}</p>
+                    <p className="flex items-center gap-2 pl-4 text-dark-600 italic">
+                      <button
+                        onClick={() => speak(seg.translatedText)}
+                        title="Play translation aloud"
+                        className="not-italic"
+                      >
+                        🔊
+                      </button>
+                      {seg.translatedText}
+                    </p>
                   )}
                 </div>
               ))}
