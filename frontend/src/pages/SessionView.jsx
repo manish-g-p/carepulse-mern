@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
+import Button from "../components/ui/Button";
 import SessionTranscript from "../components/SessionTranscript";
-import { getConversation } from "../lib/api";
+import { deleteConversation, getConversation } from "../lib/api";
 
 const SessionView = () => {
   const { sessionId } = useParams();
+  const navigate = useNavigate();
   const [session, setSession] = useState(null);
   const [error, setError] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -30,6 +33,20 @@ const SessionView = () => {
     return () => clearInterval(interval);
   }, [session, load]);
 
+  const handleDelete = async () => {
+    if (!window.confirm("Delete this session permanently? The recording, transcript, and audit log will be removed. This cannot be undone.")) {
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      await deleteConversation(sessionId);
+      navigate("/doctor/dashboard");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to delete this session.");
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="mx-auto flex max-w-4xl flex-col space-y-8 p-8">
       <header className="admin-header">
@@ -44,7 +61,19 @@ const SessionView = () => {
       <main className="space-y-4">
         {error && <p className="shad-error text-14-regular">{error}</p>}
         {!error && !session && <p className="text-dark-600 text-14-regular">Loading...</p>}
-        {session && <SessionTranscript session={session} onUpdate={load} />}
+        {session && (
+          <>
+            <SessionTranscript session={session} onUpdate={load} />
+            <Button
+              variant="outline"
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="w-fit text-14-regular text-red-500"
+            >
+              {isDeleting ? "Deleting..." : "🗑 Delete session"}
+            </Button>
+          </>
+        )}
       </main>
     </div>
   );

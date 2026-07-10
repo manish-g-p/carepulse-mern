@@ -96,6 +96,31 @@ const getConversation = async (req, res) => {
   }
 };
 
+// DELETE /api/conversations/:id  (doctor must own the session)
+// Right-to-delete: removes the session record, its encrypted audio file, and
+// its audit entries. Hard delete -- there's no soft-delete/retention window
+// yet, so this is irreversible and the UI confirms before calling it.
+const deleteConversation = async (req, res) => {
+  try {
+    const session = await ConversationSession.findOne({
+      _id: req.params.id,
+      doctorId: req.auth.doctorId,
+    });
+    if (!session) return res.status(404).json({ message: "Session not found" });
+
+    if (session.audioObjectKey) {
+      fs.rmSync(path.join(audioDir, session.audioObjectKey), { force: true });
+    }
+    await AuditLog.deleteMany({ sessionId: session._id });
+    await session.deleteOne();
+
+    res.json({ deleted: true });
+  } catch (error) {
+    console.error("deleteConversation error:", error);
+    res.status(500).json({ message: "Failed to delete session" });
+  }
+};
+
 // POST /api/conversations  { userId, patientName, consentGiven }
 const startConversation = async (req, res) => {
   try {
@@ -313,6 +338,7 @@ const getConversationAudit = async (req, res) => {
 module.exports = {
   listConversations,
   getConversation,
+  deleteConversation,
   startConversation,
   stopConversation,
   updateSpeakerRoles,

@@ -95,6 +95,11 @@ export const getConversation = async (sessionId) => {
   return data;
 };
 
+export const deleteConversation = async (sessionId) => {
+  const { data } = await api.delete(`/conversations/${sessionId}`);
+  return data;
+};
+
 export const startConversation = async (userId, patientName, consentGiven) => {
   const { data } = await api.post("/conversations", { userId, patientName, consentGiven });
   return data;
