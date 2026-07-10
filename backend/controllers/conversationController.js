@@ -28,7 +28,7 @@ const withKeyItems = (session) => ({
 // has to be decrypted to a temp plaintext file before ffmpeg/whisper can
 // read it -- that temp file is deleted immediately after, same as the
 // intermediate WAV.
-const runSpeechProcessing = async (sessionId, audioFilename) => {
+const runSpeechProcessing = async (sessionId, audioFilename, numSpeakers = 2) => {
   let tempPlainPath;
   let wavPath;
   try {
@@ -44,7 +44,7 @@ const runSpeechProcessing = async (sessionId, audioFilename) => {
     // than failing the whole transcript.
     let speakerIds = null;
     try {
-      speakerIds = await diarizeSegments(wavPath, segments, 2);
+      speakerIds = await diarizeSegments(wavPath, segments, numSpeakers);
     } catch (error) {
       console.error("diarizeSegments error:", error);
     }
@@ -121,10 +121,10 @@ const deleteConversation = async (req, res) => {
   }
 };
 
-// POST /api/conversations  { userId, patientName, consentGiven }
+// POST /api/conversations  { userId, patientName, consentGiven, numSpeakers }
 const startConversation = async (req, res) => {
   try {
-    const { userId, patientName, consentGiven } = req.body;
+    const { userId, patientName, consentGiven, numSpeakers } = req.body;
     if (!userId || !patientName) {
       return res.status(400).json({ message: "userId and patientName are required" });
     }
@@ -138,6 +138,7 @@ const startConversation = async (req, res) => {
       doctorId: req.auth.doctorId,
       userId,
       patientName,
+      numSpeakers: Math.min(Math.max(Number(numSpeakers) || 2, 2), 4),
       consent: { given: true, at: new Date() },
     });
 
@@ -177,7 +178,7 @@ const stopConversation = async (req, res) => {
     res.json(session);
 
     if (encryptedFilename) {
-      runSpeechProcessing(session._id, encryptedFilename);
+      runSpeechProcessing(session._id, encryptedFilename, session.numSpeakers);
     }
   } catch (error) {
     console.error("stopConversation error:", error);

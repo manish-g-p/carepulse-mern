@@ -12,6 +12,7 @@ const Conversation = () => {
   const [lookupError, setLookupError] = useState("");
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [consentGiven, setConsentGiven] = useState(false);
+  const [numSpeakers, setNumSpeakers] = useState(2);
 
   const [activeSession, setActiveSession] = useState(null);
   const [isBusy, setIsBusy] = useState(false);
@@ -86,7 +87,7 @@ const Conversation = () => {
       };
       mediaRecorderRef.current = recorder;
 
-      const session = await startConversation(patient.userId, patient.name, consentGiven);
+      const session = await startConversation(patient.userId, patient.name, consentGiven, numSpeakers);
       setActiveSession(session);
       recorder.start();
       await loadSessions();
@@ -162,6 +163,18 @@ const Conversation = () => {
                 <p className="text-14-medium">
                   {patient.name} <span className="text-dark-600">({patient.email})</span>
                 </p>
+                <label className="flex items-center gap-2 text-14-regular text-dark-600">
+                  People in the room
+                  <select
+                    value={numSpeakers}
+                    onChange={(e) => setNumSpeakers(Number(e.target.value))}
+                    className="rounded-md border border-dark-500 bg-dark-300 px-2 py-1 text-white"
+                  >
+                    <option value={2}>2 (doctor + patient)</option>
+                    <option value={3}>3 (+ 1 patient party)</option>
+                    <option value={4}>4 (+ 2 patient party)</option>
+                  </select>
+                </label>
                 <label className="flex items-start gap-2 text-14-regular text-dark-600">
                   <input
                     type="checkbox"

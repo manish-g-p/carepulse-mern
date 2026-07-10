@@ -5,6 +5,9 @@ const ConversationSessionSchema = new mongoose.Schema(
     doctorId: { type: mongoose.Schema.Types.ObjectId, ref: "Doctor", required: true },
     userId: { type: String, required: true, index: true }, // patient's User.userId
     patientName: { type: String, required: true },
+    // How many distinct speakers to cluster the transcript into -- e.g. 3 when
+    // a patient's family member ("patient party") is also in the room.
+    numSpeakers: { type: Number, default: 2, min: 2, max: 4 },
     status: { type: String, enum: ["in-progress", "completed"], default: "in-progress" },
     startedAt: { type: Date, default: Date.now },
     endedAt: { type: Date },

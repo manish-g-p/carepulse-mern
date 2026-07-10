@@ -100,8 +100,13 @@ export const deleteConversation = async (sessionId) => {
   return data;
 };
 
-export const startConversation = async (userId, patientName, consentGiven) => {
-  const { data } = await api.post("/conversations", { userId, patientName, consentGiven });
+export const startConversation = async (userId, patientName, consentGiven, numSpeakers) => {
+  const { data } = await api.post("/conversations", {
+    userId,
+    patientName,
+    consentGiven,
+    numSpeakers,
+  });
   return data;
 };
 
