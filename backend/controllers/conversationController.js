@@ -4,7 +4,7 @@ const os = require("os");
 const path = require("path");
 const ConversationSession = require("../models/ConversationSession");
 const AuditLog = require("../models/AuditLog");
-const { convertToWav, transcribeSegments } = require("../services/transcribeService");
+const { convertToWav, wavDurationMs, transcribeSegments } = require("../services/transcribeService");
 const { diarizeSegments } = require("../services/diarizeService");
 const { buildTranscriptWorkbook } = require("../services/excelService");
 const { encryptBuffer, decryptBuffer } = require("../services/audioCryptoService");
@@ -13,6 +13,18 @@ const { extractKeyItems } = require("../services/clinicalExtract");
 
 const audioDir = path.join(__dirname, "..", "storage", "audio");
 if (!fs.existsSync(audioDir)) fs.mkdirSync(audioDir, { recursive: true });
+
+// In-memory per-session state for the incremental live transcript:
+// committedMs/committedText = audio already transcribed and locked in;
+// tailText = the still-revisable live edge from the last pass. Entries are
+// removed on stop/delete. Held in memory only -- if the server restarts
+// mid-recording the next pass just rebuilds from zero, which is consistent
+// (both the offset and the text are lost together).
+const liveState = new Map();
+
+// Keep the last few seconds uncommitted so whisper can revise the live edge
+// (it often re-hears a trailing half-sentence once more audio arrives).
+const LIVE_TAIL_MS = 4000;
 
 // Serializes a session the same way res.json(doc) would (Mongoose toJSON, which
 // flattens the speakerRoles Map) and attaches computed keyItems. Computed on
@@ -113,6 +125,7 @@ const deleteConversation = async (req, res) => {
     }
     await AuditLog.deleteMany({ sessionId: session._id });
     await session.deleteOne();
+    liveState.delete(session._id.toString());
 
     res.json({ deleted: true });
   } catch (error) {
@@ -174,6 +187,7 @@ const stopConversation = async (req, res) => {
     }
     await session.save();
     await AuditLog.create({ doctorId: req.auth.doctorId, sessionId: session._id, action: "stop" });
+    liveState.delete(session._id.toString());
 
     res.json(session);
 
@@ -187,11 +201,14 @@ const stopConversation = async (req, res) => {
 };
 
 // POST /api/conversations/:id/live  (multipart/form-data, field: audio)
-// Transcribes the audio-so-far during recording and returns the current text,
-// so the doctor sees a live transcript. This is best-effort and transient:
-// no diarization, nothing saved or encrypted, no audit entry -- the real
-// transcript+diarization still happens on Stop from the full recording. The
-// browser posts the accumulating clip every few seconds while recording.
+// Incremental live transcription: the browser posts the whole clip-so-far
+// every few seconds, but whisper only runs on the audio AFTER the committed
+// offset -- so a pass costs the same whether the recording is 1 or 60 minutes.
+// Segments that end before the revisable tail get committed (text appended,
+// offset advanced); the tail is returned but stays re-transcribable. This is
+// best-effort and transient: no diarization, nothing saved or encrypted, no
+// audit entry -- the real transcript+diarization still happens on Stop from
+// the full recording.
 const transcribeLive = async (req, res) => {
   let tmpWebm;
   let wavPath;
@@ -203,11 +220,40 @@ const transcribeLive = async (req, res) => {
     if (!session) return res.status(404).json({ message: "Session not found" });
     if (!req.file) return res.status(400).json({ message: "audio is required" });
 
+    const key = session._id.toString();
+    const state = liveState.get(key) || { committedMs: 0, committedText: "", tailText: "" };
+
     tmpWebm = path.join(audioDir, `live-${Date.now()}-${crypto.randomBytes(6).toString("hex")}.webm`);
     fs.writeFileSync(tmpWebm, req.file.buffer);
-    wavPath = await convertToWav(tmpWebm);
-    const { text } = await transcribeSegments(wavPath);
-    res.json({ transcript: text });
+    wavPath = await convertToWav(tmpWebm, state.committedMs);
+
+    const windowMs = wavDurationMs(wavPath);
+    if (windowMs < 1000) {
+      // Not enough new audio to be worth a whisper pass; echo the last result.
+      return res.json({
+        transcript: `${state.committedText} ${state.tailText}`.trim(),
+        committedMs: state.committedMs,
+      });
+    }
+
+    const { segments } = await transcribeSegments(wavPath);
+
+    // Segment timestamps are relative to the window start (= committedMs).
+    const commitCutoff = windowMs - LIVE_TAIL_MS;
+    const toCommit = segments.filter((s) => s.endMs <= commitCutoff);
+    const tail = segments.filter((s) => s.endMs > commitCutoff);
+
+    if (toCommit.length) {
+      state.committedText = `${state.committedText} ${toCommit.map((s) => s.text).join(" ")}`.trim();
+      state.committedMs += toCommit[toCommit.length - 1].endMs;
+    }
+    state.tailText = tail.map((s) => s.text).join(" ").trim();
+    liveState.set(key, state);
+
+    res.json({
+      transcript: `${state.committedText} ${state.tailText}`.trim(),
+      committedMs: state.committedMs,
+    });
   } catch (error) {
     console.error("transcribeLive error:", error);
     res.status(500).json({ message: "Live transcription failed" });

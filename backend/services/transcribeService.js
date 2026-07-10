@@ -24,11 +24,23 @@ const run = (cmd, args) =>
 // whisper.cpp's bundled decoder doesn't read WebM/Opus (only flac/mp3/ogg/wav),
 // so the browser's MediaRecorder output has to be converted to a plain WAV first.
 // Also used as-is by diarizeService, which needs the same 16kHz mono WAV.
-const convertToWav = async (audioPath) => {
+//
+// offsetMs > 0 skips that much leading audio (used by the incremental live
+// transcription to only hand whisper the not-yet-committed window). The seek
+// is placed AFTER -i (output seek): ffmpeg decodes from 0 and discards, which
+// is sample-exact and still cheap -- MediaRecorder webm has no seek cues, so
+// input seeking would be imprecise, and opus decode is trivial next to whisper.
+const convertToWav = async (audioPath, offsetMs = 0) => {
   const wavPath = audioPath.slice(0, -path.extname(audioPath).length) + ".wav";
-  await run(FFMPEG_EXE, ["-y", "-i", audioPath, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", wavPath]);
+  const args = ["-y", "-i", audioPath];
+  if (offsetMs > 0) args.push("-ss", (offsetMs / 1000).toFixed(3));
+  args.push("-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", wavPath);
+  await run(FFMPEG_EXE, args);
   return wavPath;
 };
+
+// Duration of a 16kHz mono 16-bit WAV from its size: 32 bytes per millisecond.
+const wavDurationMs = (wavPath) => Math.max(0, Math.floor((fs.statSync(wavPath).size - 44) / 32));
 
 // Transcribes a WAV file to timestamped segments via whisper.cpp's JSON output.
 // Returns { text, segments: [{ startMs, endMs, text }] }.
@@ -57,4 +69,4 @@ const transcribeSegments = async (wavPath) => {
   }
 };
 
-module.exports = { convertToWav, transcribeSegments, isSpeechToolingReady };
+module.exports = { convertToWav, wavDurationMs, transcribeSegments, isSpeechToolingReady };
