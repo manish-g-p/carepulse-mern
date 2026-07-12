@@ -5,6 +5,7 @@ import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import SessionTranscript from "../components/SessionTranscript";
 import {
+  getTranslationLanguages,
   listConversations,
   lookupPatientByEmail,
   startConversation,
@@ -13,8 +14,9 @@ import {
 } from "../lib/api";
 
 // How often (ms) the accumulating recording is sent for a live-transcript
-// pass while recording. Whisper re-transcribes the whole clip each time, so
-// keep this coarse enough that passes don't pile up on CPU.
+// pass while recording. The server transcribes incrementally (only new audio
+// since its committed offset), but each pass still costs a few seconds of
+// whisper (+ translation when enabled) on CPU, so keep this coarse.
 const LIVE_TRANSCRIBE_INTERVAL_MS = 5000;
 
 const Conversation = () => {
@@ -33,12 +35,26 @@ const Conversation = () => {
   const [sessions, setSessions] = useState([]);
 
   const [liveTranscript, setLiveTranscript] = useState("");
+  const [liveTranslated, setLiveTranslated] = useState("");
+  const [languages, setLanguages] = useState([]);
+  const [liveSource, setLiveSource] = useState("en");
+  const [liveTarget, setLiveTarget] = useState("");
 
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const streamRef = useRef(null);
   const liveIntervalRef = useRef(null);
   const livePendingRef = useRef(false);
+  // Refs mirror the pickers so the already-running live loop sees changes
+  // made mid-recording (the interval closure would otherwise hold stale state).
+  const liveSourceRef = useRef("en");
+  const liveTargetRef = useRef("");
+
+  // Empty list hides the live-translation pickers -- the endpoint returns []
+  // when the local translation server isn't running.
+  useEffect(() => {
+    getTranslationLanguages().then(setLanguages).catch(() => setLanguages([]));
+  }, []);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -83,8 +99,14 @@ const Conversation = () => {
       livePendingRef.current = true;
       try {
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        const text = await transcribeLiveChunk(sessionId, blob);
-        setLiveTranscript(text);
+        const data = await transcribeLiveChunk(
+          sessionId,
+          blob,
+          liveTargetRef.current ? liveSourceRef.current : "",
+          liveTargetRef.current
+        );
+        setLiveTranscript(data.transcript);
+        setLiveTranslated(data.translatedTranscript || "");
       } catch (error) {
         console.error("live transcription pass failed:", error);
       }
@@ -132,6 +154,7 @@ const Conversation = () => {
       const session = await startConversation(patient.userId, patient.name, consentGiven, numSpeakers);
       setActiveSession(session);
       setLiveTranscript("");
+      setLiveTranslated("");
       // 1s timeslice so chunks accumulate during recording -- without it,
       // ondataavailable only fires at stop and there'd be nothing to send
       // for the live transcript passes.
@@ -174,6 +197,7 @@ const Conversation = () => {
       setEmail("");
       setConsentGiven(false);
       setLiveTranscript("");
+      setLiveTranslated("");
       await loadSessions();
     } catch (error) {
       setActionError(error.response?.data?.message || "Failed to stop the conversation.");
@@ -253,9 +277,52 @@ const Conversation = () => {
               🔴 Recording with {activeSession.patientName} — started{" "}
               {new Date(activeSession.startedAt).toLocaleTimeString()}
             </p>
+            {languages.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 text-14-regular text-dark-600">
+                Live translation:
+                <select
+                  value={liveSource}
+                  onChange={(e) => {
+                    setLiveSource(e.target.value);
+                    liveSourceRef.current = e.target.value;
+                  }}
+                  className="rounded-md border border-dark-500 bg-dark-300 px-2 py-1 text-white"
+                >
+                  {languages.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      from {lang.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={liveTarget}
+                  onChange={(e) => {
+                    setLiveTarget(e.target.value);
+                    liveTargetRef.current = e.target.value;
+                  }}
+                  className="rounded-md border border-dark-500 bg-dark-300 px-2 py-1 text-white"
+                >
+                  <option value="">off</option>
+                  {languages
+                    .filter((lang) => lang.code !== liveSource)
+                    .map((lang) => (
+                      <option key={lang.code} value={lang.code}>
+                        to {lang.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            )}
             <div className="min-h-[80px] rounded-md bg-dark-400 p-3 text-14-regular">
               {liveTranscript ? (
-                <p className="text-white">{liveTranscript}</p>
+                <>
+                  <p className="text-white">{liveTranscript}</p>
+                  {liveTranslated && (
+                    <p className="mt-2 border-t border-dark-500 pt-2 text-green-500 italic">
+                      {liveTranslated}
+                    </p>
+                  )}
+                </>
               ) : (
                 <p className="text-dark-600 italic">Listening… the transcript appears here as you speak.</p>
               )}

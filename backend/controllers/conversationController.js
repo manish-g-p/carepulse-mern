@@ -221,19 +221,27 @@ const transcribeLive = async (req, res) => {
     if (!req.file) return res.status(400).json({ message: "audio is required" });
 
     const key = session._id.toString();
-    const state = liveState.get(key) || { committedMs: 0, committedText: "", tailText: "" };
+    const state =
+      liveState.get(key) ||
+      { committedMs: 0, committedText: "", tailText: "", translatedCommitted: "", translatedTail: "", languagePair: "" };
 
     tmpWebm = path.join(audioDir, `live-${Date.now()}-${crypto.randomBytes(6).toString("hex")}.webm`);
     fs.writeFileSync(tmpWebm, req.file.buffer);
     wavPath = await convertToWav(tmpWebm, state.committedMs);
 
+    const respond = () =>
+      res.json({
+        transcript: `${state.committedText} ${state.tailText}`.trim(),
+        translatedTranscript: state.languagePair
+          ? `${state.translatedCommitted} ${state.translatedTail}`.trim()
+          : "",
+        committedMs: state.committedMs,
+      });
+
     const windowMs = wavDurationMs(wavPath);
     if (windowMs < 1000) {
       // Not enough new audio to be worth a whisper pass; echo the last result.
-      return res.json({
-        transcript: `${state.committedText} ${state.tailText}`.trim(),
-        committedMs: state.committedMs,
-      });
+      return respond();
     }
 
     const { segments } = await transcribeSegments(wavPath);
@@ -243,17 +251,44 @@ const transcribeLive = async (req, res) => {
     const toCommit = segments.filter((s) => s.endMs <= commitCutoff);
     const tail = segments.filter((s) => s.endMs > commitCutoff);
 
+    const newlyCommittedText = toCommit.map((s) => s.text).join(" ").trim();
     if (toCommit.length) {
-      state.committedText = `${state.committedText} ${toCommit.map((s) => s.text).join(" ")}`.trim();
+      state.committedText = `${state.committedText} ${newlyCommittedText}`.trim();
       state.committedMs += toCommit[toCommit.length - 1].endMs;
     }
     state.tailText = tail.map((s) => s.text).join(" ").trim();
-    liveState.set(key, state);
 
-    res.json({
-      transcript: `${state.committedText} ${state.tailText}`.trim(),
-      committedMs: state.committedMs,
-    });
+    // Optional live translation, incremental like the transcript itself: only
+    // newly-committed text gets a full translate; the short tail is
+    // re-translated each pass. Best-effort -- any failure (or the translation
+    // server being down) just means this pass returns transcript only.
+    const { source, target } = req.body;
+    const pair = source && target && source !== target ? `${source}->${target}` : "";
+    try {
+      if (pair && (await isTranslationAvailable())) {
+        if (state.languagePair !== pair) {
+          // Language pair (re)selected mid-recording: re-translate what's
+          // committed so far once, then continue incrementally.
+          state.languagePair = pair;
+          state.translatedCommitted = state.committedText
+            ? await translateText(state.committedText, source, target)
+            : "";
+        } else if (newlyCommittedText) {
+          const chunk = await translateText(newlyCommittedText, source, target);
+          state.translatedCommitted = `${state.translatedCommitted} ${chunk}`.trim();
+        }
+        state.translatedTail = state.tailText ? await translateText(state.tailText, source, target) : "";
+      } else if (!pair) {
+        state.languagePair = "";
+        state.translatedCommitted = "";
+        state.translatedTail = "";
+      }
+    } catch (translationError) {
+      console.error("live translation pass failed:", translationError);
+    }
+
+    liveState.set(key, state);
+    respond();
   } catch (error) {
     console.error("transcribeLive error:", error);
     res.status(500).json({ message: "Live transcription failed" });

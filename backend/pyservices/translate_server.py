@@ -59,8 +59,11 @@ def translate():
     tokenizer.src_lang = LANGUAGES[source]["flores"]
     inputs = tokenizer(text, return_tensors="pt")
     target_token_id = tokenizer.convert_tokens_to_ids(LANGUAGES[target]["flores"])
+    # Greedy decoding (num_beams=1): NLLB's default beam search is ~3-5x
+    # slower on CPU, which made live-translation passes lag far behind the
+    # 5s cadence. Greedy is slightly less polished but fast enough to keep up.
     generated = model.generate(
-        **inputs, forced_bos_token_id=target_token_id, max_length=512
+        **inputs, forced_bos_token_id=target_token_id, max_length=512, num_beams=1
     )
     translated = tokenizer.batch_decode(generated, skip_special_tokens=True)[0]
     return jsonify({"translatedText": translated})
