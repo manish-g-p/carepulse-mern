@@ -153,9 +153,26 @@ push what's real for that day rather than padding it out.
 - [ ] Retention policy + delete endpoint
 
 ### Phase 5 — Extract services (only once Phase 1-4 work and feel slow)
-- [ ] Docker Compose: split Conversation Service + AI workers out of the monolith
-- [ ] RabbitMQ between Conversation Service and workers
-- [ ] API Gateway (Nginx) in front of everything
+- [x] **Day 20** — Speech worker extracted from the API: the heavy pipeline
+      (decrypt → whisper → diarize → save) now runs in a dedicated process
+      (`backend/worker.js`, `npm run worker`) consuming jobs from **RabbitMQ**.
+      The API publishes a job on Stop and stays responsive; `prefetch(1)` lets
+      multiple workers load-balance. If the broker is unreachable, the API
+      falls back to in-process processing — a broker outage degrades
+      performance, never drops transcripts.
+- [x] **Day 20** — `docker-compose.yml`: RabbitMQ (with healthcheck +
+      management UI on :15672) and the gateway. Node services + worker run on
+      the host during dev because they shell out to Windows-native
+      whisper/ffmpeg binaries and local Python venvs — containerizing them
+      means Linux builds of that tooling (a documented later step, not done).
+- [x] **Day 20** — API Gateway (Nginx in Docker, :8080): single entry point
+      routing `/api/*` → API service and `/` → frontend (with websocket-aware
+      proxying for Vite HMR).
+- [ ] Split auth/patients/appointments into separate services with per-service
+      databases (the full diagram) — not done; the API service is still one
+      Express app and all services share one MongoDB.
+- [ ] Containerize the Node services + speech worker (needs Linux
+      whisper/ffmpeg + Python-in-image for diarization/translation).
 
 ### Phase 6 — Extras
 - [x] Medication/symptom keyword highlighting — **Day 11**: keyword/pattern extraction of
@@ -164,4 +181,5 @@ push what's real for that day rather than padding it out.
       could later add inline highlighting or an NLP model. See [devlog/2026-07-08.md](devlog/2026-07-08.md).
 - [ ] Patient portal: view own conversation history
 - [ ] Medication-reminder notifications derived from the transcript
-- [ ] Multi-speaker sessions (e.g. a nurse also present)
+- [x] Multi-speaker sessions — **Day 15**: 2-4 people in the room, "patient party"
+      separated into its own speaker cluster.
