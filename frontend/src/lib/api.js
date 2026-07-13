@@ -1,6 +1,9 @@
 import axios from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+// The nginx gateway (:8080) is the single API entry point since the Phase 5
+// split -- it routes /api/auth, /api/conversations, and the rest to the
+// per-domain services. Start it with `docker compose up -d` at the repo root.
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
 
 const api = axios.create({ baseURL: API_BASE_URL });
 

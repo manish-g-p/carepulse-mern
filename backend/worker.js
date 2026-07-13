@@ -14,7 +14,9 @@ const { QUEUE, RABBITMQ_URL } = require("./services/speechQueue");
 const RETRY_DELAY_MS = 5000;
 
 const start = async () => {
-  await connectDB();
+  // Same database as the conversation service -- the worker writes the
+  // transcripts that service owns.
+  await connectDB(process.env.CONVERSATION_DB || "carepulse_conversations");
 
   const consume = async () => {
     try {

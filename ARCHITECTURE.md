@@ -168,9 +168,17 @@ push what's real for that day rather than padding it out.
 - [x] **Day 20** — API Gateway (Nginx in Docker, :8080): single entry point
       routing `/api/*` → API service and `/` → frontend (with websocket-aware
       proxying for Vite HMR).
-- [ ] Split auth/patients/appointments into separate services with per-service
-      databases (the full diagram) — not done; the API service is still one
-      Express app and all services share one MongoDB.
+- [x] **Day 21** — Per-domain service split with per-service databases:
+      auth-service (:5001, `carepulse_auth`, owns Doctor), patient-service
+      (:5002, `carepulse_patients`, owns User/Patient/Appointment),
+      conversation-service (:5003, `carepulse_conversations`, owns
+      ConversationSession/AuditLog — shared with the speech worker). The
+      monolith `server.js` is gone; the gateway does per-domain routing and is
+      now the frontend's single API entry point (:8080). Services never query
+      each other's data — JWTs (shared secret) carry identity across them.
+      One-time `npm run migrate:service-dbs` copies monolith data into the
+      per-service DBs (source db left untouched as backup). All DBs live on
+      the same free Atlas cluster — separate stores, one cluster, still $0.
 - [ ] Containerize the Node services + speech worker (needs Linux
       whisper/ffmpeg + Python-in-image for diarization/translation).
 
