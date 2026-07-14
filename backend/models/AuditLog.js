@@ -13,6 +13,10 @@ const AuditLogSchema = new mongoose.Schema(
       enum: ["start", "stop", "download-audio", "download-excel"],
       required: true,
     },
+    // Who performed the action. doctorId above always identifies whose audit
+    // trail the entry belongs to (the session's doctor); "patient" means the
+    // patient downloaded their own transcript via the portal (Day 24).
+    actor: { type: String, enum: ["doctor", "patient"], default: "doctor" },
     at: { type: Date, default: Date.now },
   },
   { timestamps: false }

@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const Doctor = require("../models/Doctor");
+const PatientCredential = require("../models/PatientCredential");
 
 // POST /api/auth/admin-login  { passkey }
 const adminLogin = (req, res) => {
@@ -79,4 +80,77 @@ const doctorLogin = async (req, res) => {
   }
 };
 
-module.exports = { adminLogin, doctorRegister, doctorLogin };
+const signPatientToken = (credential) =>
+  jwt.sign(
+    { role: "patient", userId: credential.userId, name: credential.name },
+    process.env.JWT_SECRET,
+    { expiresIn: "8h" }
+  );
+
+// POST /api/auth/patient/activate  { inviteToken, password }
+// Redeems a doctor-issued portal invite (signed by the patient service, which
+// owns the User record) and sets the patient's password. Upsert by userId, so
+// re-inviting a patient doubles as a password reset. The invite's signature is
+// the only trust needed -- no cross-service lookup.
+const patientActivate = async (req, res) => {
+  try {
+    const { inviteToken, password } = req.body;
+    if (!inviteToken || !password) {
+      return res.status(400).json({ message: "inviteToken and password are required" });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ message: "Password must be at least 8 characters" });
+    }
+
+    let invite;
+    try {
+      invite = jwt.verify(inviteToken, process.env.JWT_SECRET);
+    } catch (error) {
+      return res.status(401).json({ message: "This invite link is invalid or has expired" });
+    }
+    if (invite.role !== "patient-invite") {
+      return res.status(401).json({ message: "This invite link is invalid or has expired" });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const credential = await PatientCredential.findOneAndUpdate(
+      { userId: invite.userId },
+      { userId: invite.userId, name: invite.name, email: invite.email, passwordHash },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    res.status(201).json({
+      token: signPatientToken(credential),
+      patient: { userId: credential.userId, name: credential.name, email: credential.email },
+    });
+  } catch (error) {
+    console.error("patientActivate error:", error);
+    res.status(500).json({ message: "Failed to activate portal account" });
+  }
+};
+
+// POST /api/auth/patient/login  { email, password }
+const patientLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: "email and password are required" });
+    }
+
+    const credential = await PatientCredential.findOne({ email: email.toLowerCase().trim() });
+    const valid = credential && (await credential.comparePassword(password));
+    if (!valid) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    res.json({
+      token: signPatientToken(credential),
+      patient: { userId: credential.userId, name: credential.name, email: credential.email },
+    });
+  } catch (error) {
+    console.error("patientLogin error:", error);
+    res.status(500).json({ message: "Failed to log in" });
+  }
+};
+
+module.exports = { adminLogin, doctorRegister, doctorLogin, patientActivate, patientLogin };

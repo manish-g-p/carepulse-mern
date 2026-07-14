@@ -9,7 +9,12 @@ import DoctorLogin from "./pages/DoctorLogin.jsx";
 import DoctorDashboard from "./pages/DoctorDashboard.jsx";
 import Conversation from "./pages/Conversation.jsx";
 import SessionView from "./pages/SessionView.jsx";
+import PortalLogin from "./pages/PortalLogin.jsx";
+import PortalActivate from "./pages/PortalActivate.jsx";
+import PortalDashboard from "./pages/PortalDashboard.jsx";
+import PortalSessionView from "./pages/PortalSessionView.jsx";
 import RequireDoctor from "./components/RequireDoctor.jsx";
+import RequirePatient from "./components/RequirePatient.jsx";
 
 function App() {
   return (
@@ -43,6 +48,24 @@ function App() {
           <RequireDoctor>
             <SessionView />
           </RequireDoctor>
+        }
+      />
+      <Route path="/portal" element={<PortalLogin />} />
+      <Route path="/portal/activate" element={<PortalActivate />} />
+      <Route
+        path="/portal/dashboard"
+        element={
+          <RequirePatient>
+            <PortalDashboard />
+          </RequirePatient>
+        }
+      />
+      <Route
+        path="/portal/sessions/:sessionId"
+        element={
+          <RequirePatient>
+            <PortalSessionView />
+          </RequirePatient>
         }
       />
     </Routes>

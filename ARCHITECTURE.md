@@ -207,7 +207,17 @@ push what's real for that day rather than padding it out.
       medications, dosage/timing, and symptoms into a "Key items" summary (UI chips + Excel
       block). First pass is deterministic keyword/regex (doctor confirms, never auto-decides);
       could later add inline highlighting or an NLP model. See [devlog/2026-07-08.md](devlog/2026-07-08.md).
-- [ ] Patient portal: view own conversation history
+- [x] Patient portal — **Day 24**: patients log in and read their own
+      transcripts (+ key items + saved translations) and download the Excel —
+      strictly read-only (no audio playback, relabeling, translating, audit
+      view, or delete). Access starts with a doctor-issued invite link: the
+      patient service (which owns the User) signs a 72h `patient-invite` JWT;
+      the auth service verifies the signature and stores a PatientCredential
+      (own collection in carepulse_auth) — services still never query each
+      other's data. Re-inviting doubles as password reset. Patient tokens are
+      `role: "patient"` with the cross-service userId; the conversation
+      service scopes their reads by that userId, and patient Excel downloads
+      appear on the doctor's audit trail as `actor: "patient"`.
 - [ ] Medication-reminder notifications derived from the transcript
 - [x] Multi-speaker sessions — **Day 15**: 2-4 people in the room, "patient party"
       separated into its own speaker cluster.

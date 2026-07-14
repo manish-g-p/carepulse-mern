@@ -7,9 +7,14 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api"
 
 const api = axios.create({ baseURL: API_BASE_URL });
 
-// Attach whichever role's token is present (a browser session is only ever one role at a time)
+// Attach whichever role's token is present (a browser session is only ever
+// one role at a time -- portal login/activation clears doctor/admin tokens
+// and vice versa, so precedence here never actually decides anything).
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("doctorToken") || localStorage.getItem("adminToken");
+  const token =
+    localStorage.getItem("doctorToken") ||
+    localStorage.getItem("adminToken") ||
+    localStorage.getItem("patientToken");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -75,6 +80,23 @@ export const doctorRegister = async (payload) => {
 
 export const doctorLogin = async (email, password) => {
   const { data } = await api.post("/auth/doctor/login", { email, password });
+  return data;
+};
+
+// Doctor-issued portal invite for a patient (Day 24). Returns
+// { inviteToken, activatePath, expiresInHours }.
+export const createPortalInvite = async (userId) => {
+  const { data } = await api.post(`/users/${userId}/portal-invite`);
+  return data;
+};
+
+export const patientActivate = async (inviteToken, password) => {
+  const { data } = await api.post("/auth/patient/activate", { inviteToken, password });
+  return data;
+};
+
+export const patientLogin = async (email, password) => {
+  const { data } = await api.post("/auth/patient/login", { email, password });
   return data;
 };
 

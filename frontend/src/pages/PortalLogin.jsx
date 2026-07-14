@@ -5,16 +5,27 @@ import { Link, useNavigate } from "react-router-dom";
 
 import CustomFormField, { FormFieldType } from "../components/CustomFormField";
 import SubmitButton from "../components/SubmitButton";
-import { doctorLogin } from "../lib/api";
-import { DoctorLoginValidation } from "../lib/validation";
+import { patientLogin } from "../lib/api";
+import { PortalLoginValidation } from "../lib/validation";
 
-const DoctorLogin = () => {
+// Stores the patient session and clears any other role's tokens -- a browser
+// session is only ever one role at a time (the API client attaches whichever
+// token exists).
+export const storePatientSession = (token, patient) => {
+  localStorage.removeItem("doctorToken");
+  localStorage.removeItem("doctorInfo");
+  localStorage.removeItem("adminToken");
+  localStorage.setItem("patientToken", token);
+  localStorage.setItem("patientInfo", JSON.stringify(patient));
+};
+
+const PortalLogin = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState("");
 
   const form = useForm({
-    resolver: zodResolver(DoctorLoginValidation),
+    resolver: zodResolver(PortalLoginValidation),
     defaultValues: { email: "", password: "" },
   });
 
@@ -23,14 +34,9 @@ const DoctorLogin = () => {
     setServerError("");
 
     try {
-      const { token, doctor } = await doctorLogin(email, password);
-      // One role per browser session: drop any patient-portal session so the
-      // API client can't pick up the wrong token later.
-      localStorage.removeItem("patientToken");
-      localStorage.removeItem("patientInfo");
-      localStorage.setItem("doctorToken", token);
-      localStorage.setItem("doctorInfo", JSON.stringify(doctor));
-      navigate("/doctor/dashboard");
+      const { token, patient } = await patientLogin(email, password);
+      storePatientSession(token, patient);
+      navigate("/portal/dashboard");
     } catch (error) {
       setServerError(error.response?.data?.message || "Invalid email or password.");
     }
@@ -46,8 +52,11 @@ const DoctorLogin = () => {
 
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 space-y-6">
             <section className="mb-12 space-y-4">
-              <h1 className="header">Doctor login</h1>
-              <p className="text-dark-700">Log in to record and review patient conversations.</p>
+              <h1 className="header">Patient portal</h1>
+              <p className="text-dark-700">
+                Log in to view your consultation transcripts. No account yet? Ask your doctor for
+                an invite link.
+              </p>
             </section>
 
             <CustomFormField
@@ -55,7 +64,7 @@ const DoctorLogin = () => {
               control={form.control}
               name="email"
               label="Email"
-              placeholder="jane@hospital.com"
+              placeholder="you@example.com"
             />
 
             <CustomFormField
@@ -74,16 +83,16 @@ const DoctorLogin = () => {
 
           <div className="text-14-regular mt-20 flex justify-between">
             <p className="text-dark-600">© 2026 CarePulse</p>
-            <Link to="/doctor/register" className="text-green-500">
-              New here? Create an account
+            <Link to="/" className="text-green-500">
+              ← Home
             </Link>
           </div>
         </div>
       </section>
 
-      <img src="/assets/images/onboarding-img.png" alt="doctor" className="side-img max-w-[50%]" />
+      <img src="/assets/images/onboarding-img.png" alt="patient" className="side-img max-w-[50%]" />
     </div>
   );
 };
 
-export default DoctorLogin;
+export default PortalLogin;

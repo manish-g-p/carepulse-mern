@@ -55,7 +55,12 @@ const highlightText = (text, phraseColors) => {
 // inline in the Conversation page's "Past sessions" list and on the
 // dashboard's session detail view (Day 9), so it manages its own audio-blob
 // state rather than relying on a parent-held map keyed by session id.
-const SessionTranscript = ({ session, onUpdate }) => {
+//
+// readOnly (patient portal, Day 24) keeps the transcript, key items, existing
+// translations, and Excel download, and hides everything doctor-only:
+// playback, role relabeling, translating, and the audit log (those routes
+// reject patient tokens anyway).
+const SessionTranscript = ({ session, onUpdate, readOnly = false }) => {
   const [audioUrl, setAudioUrl] = useState(null);
   const [languages, setLanguages] = useState([]);
   const [sourceLang, setSourceLang] = useState("en");
@@ -67,10 +72,12 @@ const SessionTranscript = ({ session, onUpdate }) => {
   const phraseColors = buildPhraseColors(session.keyItems);
 
   // Empty list simply hides the translate controls -- the endpoint returns []
-  // when the local translation server isn't running.
+  // when the local translation server isn't running. Doctor-only, so don't
+  // even ask in read-only mode.
   useEffect(() => {
+    if (readOnly) return;
     getTranslationLanguages().then(setLanguages).catch(() => setLanguages([]));
-  }, []);
+  }, [readOnly]);
 
   const playRecording = async () => {
     if (audioUrl) return;
@@ -147,7 +154,8 @@ const SessionTranscript = ({ session, onUpdate }) => {
         <span className="text-dark-600">{session.status}</span>
         <span className="text-dark-600">{new Date(session.startedAt).toLocaleString()}</span>
       </div>
-      {session.audioObjectKey &&
+      {!readOnly &&
+        session.audioObjectKey &&
         (audioUrl ? (
           <audio controls src={audioUrl} className="w-full" />
         ) : (
@@ -167,7 +175,7 @@ const SessionTranscript = ({ session, onUpdate }) => {
               <Button variant="outline" onClick={downloadExcel} className="w-fit text-14-regular">
                 ⬇ Download Excel
               </Button>
-              {languages.length > 0 && (
+              {!readOnly && languages.length > 0 && (
                 <>
                   <select
                     value={sourceLang}
@@ -235,24 +243,26 @@ const SessionTranscript = ({ session, onUpdate }) => {
                 </div>
               )}
 
-            <div className="flex flex-wrap gap-3">
-              {[...new Set(session.segments.map((s) => s.speaker))].map((speaker) => (
-                <label key={speaker} className="flex items-center gap-2 text-dark-600">
-                  {speaker}
-                  <select
-                    value={session.speakerRoles?.[speaker] || ""}
-                    onChange={(e) => relabelSpeaker(speaker, e.target.value)}
-                    className="rounded-md border border-dark-500 bg-dark-300 px-2 py-1 text-white"
-                  >
-                    {ROLE_OPTIONS.map((role) => (
-                      <option key={role} value={role}>
-                        {role || "unlabeled"}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ))}
-            </div>
+            {!readOnly && (
+              <div className="flex flex-wrap gap-3">
+                {[...new Set(session.segments.map((s) => s.speaker))].map((speaker) => (
+                  <label key={speaker} className="flex items-center gap-2 text-dark-600">
+                    {speaker}
+                    <select
+                      value={session.speakerRoles?.[speaker] || ""}
+                      onChange={(e) => relabelSpeaker(speaker, e.target.value)}
+                      className="rounded-md border border-dark-500 bg-dark-300 px-2 py-1 text-white"
+                    >
+                      {ROLE_OPTIONS.map((role) => (
+                        <option key={role} value={role}>
+                          {role || "unlabeled"}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
+            )}
             <div className="space-y-2">
               {session.segments.map((seg, i) => (
                 <div key={i}>
@@ -284,25 +294,32 @@ const SessionTranscript = ({ session, onUpdate }) => {
           </p>
         ))}
 
-      <div>
-        <button onClick={toggleAuditLog} className="text-14-regular text-green-500">
-          {auditLog !== null ? "Hide activity log" : "Show activity log"}
-        </button>
-        {auditLog !== null && (
-          <ul className="mt-2 space-y-1 rounded-md border border-dark-500 p-2 text-14-regular">
-            {auditLog.length === 0 ? (
-              <li className="text-dark-600">No activity recorded.</li>
-            ) : (
-              auditLog.map((entry) => (
-                <li key={entry._id} className="flex justify-between text-dark-600">
-                  <span className="text-white">{ACTION_LABELS[entry.action] || entry.action}</span>
-                  <span>{new Date(entry.at).toLocaleString()}</span>
-                </li>
-              ))
-            )}
-          </ul>
-        )}
-      </div>
+      {!readOnly && (
+        <div>
+          <button onClick={toggleAuditLog} className="text-14-regular text-green-500">
+            {auditLog !== null ? "Hide activity log" : "Show activity log"}
+          </button>
+          {auditLog !== null && (
+            <ul className="mt-2 space-y-1 rounded-md border border-dark-500 p-2 text-14-regular">
+              {auditLog.length === 0 ? (
+                <li className="text-dark-600">No activity recorded.</li>
+              ) : (
+                auditLog.map((entry) => (
+                  <li key={entry._id} className="flex justify-between text-dark-600">
+                    <span className="text-white">
+                      {ACTION_LABELS[entry.action] || entry.action}
+                      {entry.actor === "patient" && (
+                        <span className="text-dark-600"> (by patient via portal)</span>
+                      )}
+                    </span>
+                    <span>{new Date(entry.at).toLocaleString()}</span>
+                  </li>
+                ))
+              )}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 };

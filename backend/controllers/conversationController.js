@@ -42,10 +42,16 @@ const dispatchSpeechProcessing = async (sessionId, audioFilename, numSpeakers) =
   if (!queued) runSpeechProcessing(sessionId, audioFilename, numSpeakers);
 };
 
-// GET /api/conversations  (the logged-in doctor's own sessions, most recent first)
+// Ownership filter for read routes shared by both roles: a doctor sees the
+// sessions they recorded, a patient sees the sessions recorded about them
+// (their token carries the cross-service userId).
+const sessionScope = (auth) =>
+  auth.role === "patient" ? { userId: auth.userId } : { doctorId: auth.doctorId };
+
+// GET /api/conversations  (the caller's own sessions, most recent first)
 const listConversations = async (req, res) => {
   try {
-    const sessions = await ConversationSession.find({ doctorId: req.auth.doctorId }).sort({
+    const sessions = await ConversationSession.find(sessionScope(req.auth)).sort({
       createdAt: -1,
     });
     res.json(sessions.map(withKeyItems));
@@ -55,12 +61,12 @@ const listConversations = async (req, res) => {
   }
 };
 
-// GET /api/conversations/:id  (doctor must own the session)
+// GET /api/conversations/:id  (caller must own the session -- see sessionScope)
 const getConversation = async (req, res) => {
   try {
     const session = await ConversationSession.findOne({
       _id: req.params.id,
-      doctorId: req.auth.doctorId,
+      ...sessionScope(req.auth),
     });
     if (!session) return res.status(404).json({ message: "Session not found" });
     res.json(withKeyItems(session));
@@ -332,22 +338,25 @@ const getTranslationLanguages = async (req, res) => {
   }
 };
 
-// GET /api/conversations/:id/excel  (doctor must own the session)
+// GET /api/conversations/:id/excel  (caller must own the session)
 const getConversationExcel = async (req, res) => {
   try {
     const session = await ConversationSession.findOne({
       _id: req.params.id,
-      doctorId: req.auth.doctorId,
+      ...sessionScope(req.auth),
     });
     if (!session) return res.status(404).json({ message: "Session not found" });
     if (!session.segments?.length) {
       return res.status(404).json({ message: "No transcript for this session yet" });
     }
 
+    // The audit trail belongs to the session's doctor either way; `actor`
+    // records that it was the patient who downloaded their own transcript.
     await AuditLog.create({
-      doctorId: req.auth.doctorId,
+      doctorId: session.doctorId,
       sessionId: session._id,
       action: "download-excel",
+      actor: req.auth.role === "patient" ? "patient" : "doctor",
     });
 
     const workbook = buildTranscriptWorkbook(session);

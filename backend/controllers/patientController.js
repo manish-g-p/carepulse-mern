@@ -1,3 +1,4 @@
+const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Patient = require("../models/Patient");
 
@@ -87,4 +88,34 @@ const getPatient = async (req, res) => {
   }
 };
 
-module.exports = { createUser, getUser, lookupUserByEmail, registerPatient, getPatient };
+// POST /api/users/:userId/portal-invite  (doctor only)
+// Issues a short-lived signed invite the patient redeems on the auth service
+// to set a portal password. The patient service owns the User record, so it
+// is the one that vouches for {userId, email, name}; the auth service only
+// needs to verify the signature (shared JWT_SECRET) -- services never query
+// each other's data. Re-issuing an invite is harmless and doubles as a
+// password-reset path.
+const createPortalInvite = async (req, res) => {
+  try {
+    const user = await User.findOne({ userId: req.params.userId });
+    if (!user) return res.status(404).json({ message: "Patient not found" });
+
+    const inviteToken = jwt.sign(
+      { role: "patient-invite", userId: user.userId, email: user.email, name: user.name },
+      process.env.JWT_SECRET,
+      { expiresIn: "72h" }
+    );
+
+    res.status(201).json({
+      inviteToken,
+      // The frontend shows this as a copyable link for the doctor to share.
+      activatePath: `/portal/activate?token=${inviteToken}`,
+      expiresInHours: 72,
+    });
+  } catch (error) {
+    console.error("createPortalInvite error:", error);
+    res.status(500).json({ message: "Failed to create portal invite" });
+  }
+};
+
+module.exports = { createUser, getUser, lookupUserByEmail, registerPatient, getPatient, createPortalInvite };

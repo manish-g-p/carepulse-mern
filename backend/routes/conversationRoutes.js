@@ -18,20 +18,21 @@ const {
 
 const router = express.Router();
 
-router.use(requireAuth("doctor"));
-
-router.get("/", listConversations);
-router.post("/", startConversation);
+// Patients get read-only access to their OWN sessions (list, view, Excel);
+// everything that records, mutates, or exposes audit/audio stays doctor-only.
+// Controllers scope queries by role (see sessionScope in the controller).
+router.get("/", requireAuth("doctor", "patient"), listConversations);
+router.post("/", requireAuth("doctor"), startConversation);
 // Must come before "/:id" so "languages" isn't swallowed as a session id.
-router.get("/languages", getTranslationLanguages);
-router.put("/:id/stop", uploadAudio.single("audio"), stopConversation);
-router.post("/:id/live", uploadAudio.single("audio"), transcribeLive);
-router.put("/:id/speaker-roles", updateSpeakerRoles);
-router.post("/:id/translate", translateConversation);
-router.get("/:id/excel", getConversationExcel);
-router.get("/:id/audio", getConversationAudio);
-router.get("/:id/audit", getConversationAudit);
-router.get("/:id", getConversation);
-router.delete("/:id", deleteConversation);
+router.get("/languages", requireAuth("doctor"), getTranslationLanguages);
+router.put("/:id/stop", requireAuth("doctor"), uploadAudio.single("audio"), stopConversation);
+router.post("/:id/live", requireAuth("doctor"), uploadAudio.single("audio"), transcribeLive);
+router.put("/:id/speaker-roles", requireAuth("doctor"), updateSpeakerRoles);
+router.post("/:id/translate", requireAuth("doctor"), translateConversation);
+router.get("/:id/excel", requireAuth("doctor", "patient"), getConversationExcel);
+router.get("/:id/audio", requireAuth("doctor"), getConversationAudio);
+router.get("/:id/audit", requireAuth("doctor"), getConversationAudit);
+router.get("/:id", requireAuth("doctor", "patient"), getConversation);
+router.delete("/:id", requireAuth("doctor"), deleteConversation);
 
 module.exports = router;
