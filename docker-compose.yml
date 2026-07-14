@@ -7,6 +7,7 @@
 #   browser -> nginx gateway (:8080) -> auth-service         (:5001, container)
 #                                    -> patient-service      (:5002, container)
 #                                    -> conversation-service (:5003, container)
+#                                    -> notification-service (:5004, container)
 #                                    -> frontend             (host :5173, Vite)
 #   conversation-service -> RabbitMQ (:5672) -> speech worker (container)
 #   conversation-service -> NLLB translate server (host :5555)
@@ -66,6 +67,17 @@ services:
       # Uploaded ID documents must survive container restarts and stay in the
       # same place host-run services use.
       - ./backend/uploads:/app/uploads
+    depends_on:
+      - auth-service   # ordering only: ensures the shared image is built
+
+  # notification-service: medication reminders (Day 26). Plain Node/Express,
+  # so it rides the same slim image as auth/patient.
+  notification-service:
+    image: mern-api
+    profiles: ["containers"]
+    command: ["node", "notification-server.js"]
+    env_file:
+      - ./backend/.env
     depends_on:
       - auth-service   # ordering only: ensures the shared image is built
 

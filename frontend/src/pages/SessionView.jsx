@@ -3,7 +3,14 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import Button from "../components/ui/Button";
 import SessionTranscript from "../components/SessionTranscript";
-import { createPortalInvite, deleteConversation, getConversation } from "../lib/api";
+import {
+  createPortalInvite,
+  createReminder,
+  deleteConversation,
+  getConversation,
+  listReminders,
+} from "../lib/api";
+import { suggestReminders } from "../lib/reminderSchedule";
 
 const SessionView = () => {
   const { sessionId } = useParams();
@@ -14,6 +21,10 @@ const SessionView = () => {
   const [inviteLink, setInviteLink] = useState("");
   const [inviteError, setInviteError] = useState("");
   const [copied, setCopied] = useState(false);
+  // Reminder suggestion rows: [{ medication, timingLabel, times: "08:00, 20:00"
+  // (editable string), durationDays, status: ""|"created"|"exists" }]
+  const [reminderRows, setReminderRows] = useState([]);
+  const [reminderError, setReminderError] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -35,6 +46,63 @@ const SessionView = () => {
     const interval = setInterval(load, 3000);
     return () => clearInterval(interval);
   }, [session, load]);
+
+  // Builds the suggested reminder rows once the transcript (and its key
+  // items) are loaded, marking medications that already have a reminder from
+  // this session so re-visiting the page doesn't invite duplicates.
+  useEffect(() => {
+    if (!session?.keyItems?.medications?.length) {
+      setReminderRows([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      let existing = [];
+      try {
+        existing = (await listReminders()).filter((r) => r.sessionId === session._id);
+      } catch {
+        // Notification service unreachable: suggestions still render; create
+        // will surface the real error.
+      }
+      if (cancelled) return;
+      setReminderRows(
+        suggestReminders(session.keyItems).map((s) => ({
+          ...s,
+          times: s.times.join(", "),
+          status: existing.some((r) => r.medication.toLowerCase() === s.medication.toLowerCase())
+            ? "exists"
+            : "",
+        }))
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
+  const handleCreateReminder = async (index) => {
+    const row = reminderRows[index];
+    setReminderError("");
+    const times = row.times.split(",").map((t) => t.trim()).filter(Boolean);
+    try {
+      const endDate = row.durationDays
+        ? new Date(Date.now() + row.durationDays * 24 * 60 * 60 * 1000)
+        : undefined;
+      await createReminder({
+        userId: session.userId,
+        sessionId: session._id,
+        medication: row.medication,
+        timingLabel: row.timingLabel,
+        times,
+        endDate,
+      });
+      setReminderRows((rows) =>
+        rows.map((r, i) => (i === index ? { ...r, status: "created" } : r))
+      );
+    } catch (err) {
+      setReminderError(err.response?.data?.message || "Failed to create the reminder.");
+    }
+  };
 
   // Generates a portal invite for this session's patient and shows the
   // activation link for the doctor to share (there's no email sending -- $0
@@ -114,6 +182,53 @@ const SessionView = () => {
                 </div>
               )}
             </div>
+
+            {reminderRows.length > 0 && (
+              <div className="space-y-2 rounded-md border border-dark-500 p-3">
+                <p className="text-14-medium text-white">Medication reminders</p>
+                <p className="text-14-regular text-dark-600">
+                  Suggested from this conversation&apos;s key items — adjust the dose times if
+                  needed, then create. They appear on {session.patientName}&apos;s portal
+                  dashboard.
+                </p>
+                {reminderRows.map((row, i) => (
+                  <div key={row.medication} className="flex flex-wrap items-center gap-2 text-14-regular">
+                    <span className="rounded-full bg-green-600 px-2 py-0.5 text-12-semibold text-white">
+                      {row.medication}
+                    </span>
+                    <input
+                      value={row.times}
+                      onChange={(e) =>
+                        setReminderRows((rows) =>
+                          rows.map((r, j) => (j === i ? { ...r, times: e.target.value } : r))
+                        )
+                      }
+                      disabled={row.status !== ""}
+                      className="w-40 rounded-md border border-dark-500 bg-dark-300 px-2 py-1 text-white"
+                      title="Dose times (HH:mm, comma-separated)"
+                    />
+                    <span className="text-dark-600">
+                      {row.timingLabel || "no timing extracted"}
+                      {row.durationDays ? ` · ${row.durationDays} days` : ""}
+                    </span>
+                    {row.status === "" ? (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleCreateReminder(i)}
+                        className="w-fit text-14-regular"
+                      >
+                        ⏰ Create reminder
+                      </Button>
+                    ) : (
+                      <span className="text-green-500">
+                        {row.status === "created" ? "Created ✓" : "Already created"}
+                      </span>
+                    )}
+                  </div>
+                ))}
+                {reminderError && <p className="shad-error text-14-regular">{reminderError}</p>}
+              </div>
+            )}
 
             <Button
               variant="outline"

@@ -163,6 +163,22 @@ export const transcribeLiveChunk = async (sessionId, audioBlob, source, target) 
   return data;
 };
 
+// Medication reminders (notification-service, Day 26).
+export const createReminder = async (reminder) => {
+  const { data } = await api.post("/reminders", reminder);
+  return data;
+};
+
+export const listReminders = async () => {
+  const { data } = await api.get("/reminders");
+  return data;
+};
+
+export const deleteReminder = async (reminderId) => {
+  const { data } = await api.delete(`/reminders/${reminderId}`);
+  return data;
+};
+
 // ws:// (or wss:// under https) URL of the live-transcript WebSocket, derived
 // from the API base so it goes through the same gateway.
 export const getLiveSocketUrl = () =>

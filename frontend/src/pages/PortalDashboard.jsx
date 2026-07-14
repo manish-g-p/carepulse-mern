@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { listConversations } from "../lib/api";
+import { deleteReminder, listConversations, listReminders } from "../lib/api";
+import { isReminderCurrent } from "../lib/reminderSchedule";
 
 // The patient's own consultation sessions. Same endpoint the doctor
 // dashboard uses -- the backend scopes the list by the token's role
@@ -10,13 +11,26 @@ const PortalDashboard = () => {
   const navigate = useNavigate();
   const patient = JSON.parse(localStorage.getItem("patientInfo") || "null");
   const [sessions, setSessions] = useState(null);
+  const [reminders, setReminders] = useState([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
     listConversations()
       .then(setSessions)
       .catch(() => setError("Failed to load your sessions."));
+    // Reminders are best-effort: if the notification service is down the
+    // portal still shows transcripts.
+    listReminders().then(setReminders).catch(() => setReminders([]));
   }, []);
+
+  const dismissReminder = async (id) => {
+    try {
+      await deleteReminder(id);
+      setReminders((all) => all.filter((r) => r._id !== id));
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const logout = () => {
     localStorage.removeItem("patientToken");
@@ -44,6 +58,51 @@ const PortalDashboard = () => {
             an Excel file.
           </p>
         </section>
+
+        {reminders.length > 0 && (
+          <section className="space-y-3">
+            <h2 className="text-16-semibold">Your medication reminders</h2>
+            <ul className="space-y-2">
+              {reminders.map((reminder) => {
+                const current = isReminderCurrent(reminder);
+                return (
+                  <li
+                    key={reminder._id}
+                    className={`flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-14-regular ${
+                      current ? "border-green-500" : "border-dark-500 opacity-60"
+                    }`}
+                  >
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-green-600 px-2 py-0.5 text-12-semibold text-white">
+                        {reminder.medication}
+                      </span>
+                      <span className="text-white">{reminder.times.join(" · ")}</span>
+                      {reminder.timingLabel && (
+                        <span className="text-dark-600">({reminder.timingLabel})</span>
+                      )}
+                      {reminder.endDate && (
+                        <span className="text-dark-600">
+                          until {new Date(reminder.endDate).toLocaleDateString()}
+                        </span>
+                      )}
+                      {current && (
+                        <span className="rounded-full bg-blue-600 px-2 py-0.5 text-12-semibold text-white">
+                          due today
+                        </span>
+                      )}
+                    </span>
+                    <button
+                      onClick={() => dismissReminder(reminder._id)}
+                      className="text-14-regular text-red-500"
+                    >
+                      Dismiss
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
 
         <section className="space-y-4">
           {error && <p className="shad-error text-14-regular">{error}</p>}

@@ -218,7 +218,15 @@ push what's real for that day rather than padding it out.
       `role: "patient"` with the cross-service userId; the conversation
       service scopes their reads by that userId, and patient Excel downloads
       appear on the doctor's audit trail as `actor: "patient"`.
-- [ ] Medication-reminder notifications derived from the transcript
+- [x] Medication-reminder notifications — **Day 26**: a fourth microservice
+      (notification-service :5004, own `carepulse_notifications` DB, rides the
+      slim mern-api image). Doctors get reminder SUGGESTIONS on the session
+      view, derived deterministically from the extracted key items (frequency
+      phrase → dose times, "for N days/weeks" → end date) — the doctor edits
+      and confirms; nothing is auto-created. Reminders appear on the patient's
+      portal dashboard with a "due today" badge; patients can dismiss their
+      own. Delivery is in-app only ($0 stack — no email/SMS); Web Push would
+      be the free upgrade path.
 - [x] Multi-speaker sessions — **Day 15**: 2-4 people in the room, "patient party"
       separated into its own speaker cluster.
 - [x] WebSocket live transcript — **Day 25**: the live transcript's primary

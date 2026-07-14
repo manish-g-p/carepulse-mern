@@ -32,8 +32,12 @@ const TIMING_PATTERNS = [
   /\b(?:one|two|three|four|1|2|3|4)\s+(?:tablets?|pills?|capsules?|spoons?|drops?)\b/gi,
 ];
 
+// Whole-word matching, not substring: "ors" must not fire inside "worse",
+// nor "cold" inside "scolded". (Found on Day 26 when a reminder suggestion
+// appeared for a medication nobody mentioned.)
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const findKeywords = (lowerText, keywords) =>
-  keywords.filter((kw) => lowerText.includes(kw));
+  keywords.filter((kw) => new RegExp(`\\b${escapeRegex(kw)}\\b`).test(lowerText));
 
 const findPatterns = (text, patterns) => {
   const found = [];

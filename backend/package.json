@@ -12,7 +12,8 @@
     "migrate:service-dbs": "node scripts/migrateToServiceDbs.js",
     "setup:speech": "node scripts/setupSpeechTools.js",
     "setup:diarize": "node scripts/setupDiarizeTools.js",
-    "setup:translate": "node scripts/setupTranslateTools.js"
+    "setup:translate": "node scripts/setupTranslateTools.js",
+    "notifications": "nodemon notification-server.js"
   },
   "dependencies": {
     "amqplib": "^2.0.1",
