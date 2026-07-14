@@ -189,10 +189,18 @@ push what's real for that day rather than padding it out.
       runs on the Windows host and in the Linux image; the ggml model is
       volume-mounted read-only, storage is bind-mounted, and `.env` is passed
       at runtime (never baked into the image — `.dockerignore` excludes it).
-- [ ] Containerize the API services (auth/patient/conversation) — they still
-      run on the host; the conversation-service needs the same whisper/ffmpeg
-      image treatment for the live endpoint, and the gateway must switch from
-      host.docker.internal to container DNS names.
+- [x] **Day 23** — Containerize the API services: auth-service and
+      patient-service share a slim `backend/Dockerfile.api` image
+      (node:22-alpine, different compose `command` each); conversation-service
+      reuses the worker's speech image (`Dockerfile.worker`, tagged
+      `mern-speech`) because its live-transcription endpoint shells out to
+      whisper/ffmpeg in-process. All run under the same opt-in `containers`
+      profile — `docker compose --profile containers up -d` is the full
+      topology. The gateway now routes to container DNS names via variable
+      `proxy_pass` + Docker's embedded resolver (so nginx still starts when
+      the profile is down). Still on the host: the Vite frontend (HMR-speed
+      dev) and the NLLB translate server (torch venv at C:\cpt, MAX_PATH),
+      both reached via host.docker.internal.
 
 ### Phase 6 — Extras
 - [x] Medication/symptom keyword highlighting — **Day 11**: keyword/pattern extraction of

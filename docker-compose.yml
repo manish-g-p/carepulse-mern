@@ -1,23 +1,30 @@
-# Phase 5 infrastructure: message broker + API gateway.
+# Phase 5 infrastructure: message broker + API gateway + containerized services.
 #
-#   docker compose up -d
+#   docker compose up -d                          -> rabbitmq + gateway only
+#   docker compose --profile containers up -d     -> full stack in containers
 #
 # Topology (see ARCHITECTURE.md):
-#   browser -> nginx gateway (:8080) -> API service (host :5000)
-#                                    -> frontend    (host :5173)
-#   API service -> RabbitMQ (:5672) -> speech worker (npm run worker)
+#   browser -> nginx gateway (:8080) -> auth-service         (:5001, container)
+#                                    -> patient-service      (:5002, container)
+#                                    -> conversation-service (:5003, container)
+#                                    -> frontend             (host :5173, Vite)
+#   conversation-service -> RabbitMQ (:5672) -> speech worker (container)
+#   conversation-service -> NLLB translate server (host :5555)
 #
-# The Node services and the speech worker run on the HOST during dev rather
-# than in containers: they shell out to the Windows-native whisper/ffmpeg
-# binaries in backend/bin and the local Python venvs, which a Linux container
-# can't run. Containerizing them means Linux builds of that tooling -- a
-# deliberate later step. If RabbitMQ is down, the API falls back to
-# processing speech in-process, so `docker compose up` is optional for dev.
+# The frontend (Vite dev server) and the NLLB translate server stay on the
+# host: the frontend for HMR-speed dev, NLLB because its torch venv lives at
+# C:\cpt (MAX_PATH workaround) with the model cached per-user. The gateway
+# reaches both via host.docker.internal.
+#
+# The API services can still be run on the host (npm run auth / patients /
+# conversations) for nodemon-style debugging, but the gateway routes to the
+# container DNS names, so host-run services are only reachable directly on
+# their ports, not through :8080.
 services:
   rabbitmq:
     image: rabbitmq:3-management
     ports:
-      - "5672:5672"    # AMQP (API service + worker)
+      - "5672:5672"    # AMQP (conversation-service + worker)
       - "15672:15672"  # management UI (guest/guest)
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
@@ -34,15 +41,62 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
-  # Containerized speech worker (Linux whisper/ffmpeg/python; see
-  # backend/Dockerfile.worker). Optional profile: `docker compose --profile
-  # containers up -d` runs it; without the profile, run the worker on the
-  # host with `npm run worker` instead (same code, host tooling). Both read
-  # the same queue, so they can even run side by side for extra throughput.
-  worker:
+  # ---- containerized services (opt-in profile) -----------------------------
+  # `docker compose --profile containers up -d` starts everything below too.
+
+  # auth + patient share one slim image (Dockerfile.api); only the command
+  # differs. No published ports -- the gateway is the single entry point.
+  auth-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.api
+    image: mern-api
+    profiles: ["containers"]
+    command: ["node", "auth-server.js"]
+    env_file:
+      - ./backend/.env
+
+  patient-service:
+    image: mern-api
+    profiles: ["containers"]
+    command: ["node", "patient-server.js"]
+    env_file:
+      - ./backend/.env
+    volumes:
+      # Uploaded ID documents must survive container restarts and stay in the
+      # same place host-run services use.
+      - ./backend/uploads:/app/uploads
+    depends_on:
+      - auth-service   # ordering only: ensures the shared image is built
+
+  # conversation-service needs the full speech tooling (whisper/ffmpeg/python)
+  # for the LIVE transcription endpoint and the broker-down in-process
+  # fallback, so it reuses the worker's image with a different command.
+  conversation-service:
     build:
       context: ./backend
       dockerfile: Dockerfile.worker
+    image: mern-speech
+    profiles: ["containers"]
+    command: ["node", "conversation-server.js"]
+    env_file:
+      - ./backend/.env
+    environment:
+      RABBITMQ_URL: amqp://rabbitmq:5672
+      CONVERSATION_DB: carepulse_conversations
+      TRANSLATE_URL: http://host.docker.internal:5555  # NLLB stays on the host
+    volumes:
+      - ./backend/storage:/app/storage                 # encrypted audio (shared w/ worker)
+      - ./backend/bin/whisper/models:/models:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  # Containerized speech worker (Day 22) -- same image as conversation-service.
+  worker:
+    image: mern-speech
     profiles: ["containers"]
     env_file:
       - ./backend/.env
@@ -55,3 +109,5 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+      conversation-service:
+        condition: service_started   # ordering only: ensures the shared image is built
