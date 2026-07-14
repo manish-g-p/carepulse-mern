@@ -1,0 +1,8 @@
+# Keep the build context small and secrets/host-only artifacts out of images.
+node_modules
+bin
+storage
+uploads
+pyservices/venv
+pyservices/__pycache__
+.env

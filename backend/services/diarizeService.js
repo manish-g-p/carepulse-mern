@@ -8,7 +8,10 @@ const path = require("path");
 // (its accurate pipeline is gated on Hugging Face) or Resemblyzer (its neural
 // embeddings need webrtcvad, which has no prebuilt Windows wheel) — see
 // pyservices/diarize.py for the full reasoning.
-const VENV_PYTHON = path.join(__dirname, "..", "pyservices", "venv", "Scripts", "python.exe");
+// PYTHON_EXE is env-overridable for the Linux worker container, which
+// installs the same deps into /opt/pyenv instead of a Windows venv.
+const VENV_PYTHON =
+  process.env.PYTHON_EXE || path.join(__dirname, "..", "pyservices", "venv", "Scripts", "python.exe");
 const DIARIZE_SCRIPT = path.join(__dirname, "..", "pyservices", "diarize.py");
 
 const isDiarizationToolingReady = () => fs.existsSync(VENV_PYTHON) && fs.existsSync(DIARIZE_SCRIPT);

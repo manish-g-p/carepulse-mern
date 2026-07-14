@@ -179,8 +179,20 @@ push what's real for that day rather than padding it out.
       One-time `npm run migrate:service-dbs` copies monolith data into the
       per-service DBs (source db left untouched as backup). All DBs live on
       the same free Atlas cluster — separate stores, one cluster, still $0.
-- [ ] Containerize the Node services + speech worker (needs Linux
-      whisper/ffmpeg + Python-in-image for diarization/translation).
+- [x] **Day 22** — Containerize the speech worker: `backend/Dockerfile.worker`
+      (ubuntu 24.04 + node + ffmpeg + official whisper.cpp Linux build in
+      `/opt/whisper` + `/opt/pyenv` with librosa/scikit-learn) runs
+      `worker.js` as the compose service `worker` under the opt-in profile
+      `containers` (`docker compose --profile containers up -d worker`).
+      Tool paths in transcribe/diarize services are env-overridable
+      (WHISPER_EXE, WHISPER_MODEL, FFMPEG_EXE, PYTHON_EXE) so the same code
+      runs on the Windows host and in the Linux image; the ggml model is
+      volume-mounted read-only, storage is bind-mounted, and `.env` is passed
+      at runtime (never baked into the image — `.dockerignore` excludes it).
+- [ ] Containerize the API services (auth/patient/conversation) — they still
+      run on the host; the conversation-service needs the same whisper/ffmpeg
+      image treatment for the live endpoint, and the gateway must switch from
+      host.docker.internal to container DNS names.
 
 ### Phase 6 — Extras
 - [x] Medication/symptom keyword highlighting — **Day 11**: keyword/pattern extraction of

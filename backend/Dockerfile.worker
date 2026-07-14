@@ -1,0 +1,38 @@
+# Speech worker container (Phase 5): Linux equivalents of the host tooling --
+# whisper.cpp's official ubuntu build, distro ffmpeg, and the diarization
+# Python deps -- around the same worker.js/speechPipeline.js code, which reads
+# the tool locations from env (see transcribeService/diarizeService).
+#
+# ubuntu:24.04 rather than a slim node image: the prebuilt whisper-cli is
+# linked against ubuntu's glibc, and 24.04's (2.39) is new enough regardless
+# of which ubuntu runner built it.
+#
+# The whisper model (~148MB) and the encrypted audio are NOT baked in -- they
+# are volume-mounted by docker-compose (models read-only, storage shared with
+# the conversation service). Secrets come from env_file at runtime, never the
+# image.
+FROM ubuntu:24.04
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates curl ffmpeg nodejs npm python3 python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+# Diarization deps in their own venv (ubuntu's python is PEP668-managed).
+RUN python3 -m venv /opt/pyenv && /opt/pyenv/bin/pip install --no-cache-dir librosa scikit-learn
+
+# Official prebuilt Linux whisper.cpp (same release as the host's Windows build).
+RUN curl -sL https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.1/whisper-bin-ubuntu-x64.tar.gz \
+      | tar xz -C /opt && mv /opt/whisper-bin-ubuntu-x64 /opt/whisper && chmod +x /opt/whisper/whisper-cli
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+COPY . .
+
+ENV WHISPER_EXE=/opt/whisper/whisper-cli \
+    WHISPER_MODEL=/models/ggml-base.bin \
+    FFMPEG_EXE=ffmpeg \
+    PYTHON_EXE=/opt/pyenv/bin/python3 \
+    LD_LIBRARY_PATH=/opt/whisper
+
+CMD ["node", "worker.js"]

@@ -6,12 +6,22 @@ const path = require("path");
 // `npm run setup:speech` (see backend/scripts/setupSpeechTools.js). Used
 // instead of the nodejs-whisper npm package because this machine has no
 // C/C++ build toolchain to compile whisper.cpp from source.
-const WHISPER_EXE = path.join(__dirname, "..", "bin", "whisper", "Release", "whisper-cli.exe");
-const WHISPER_MODEL = path.join(__dirname, "..", "bin", "whisper", "models", "ggml-base.bin");
-const FFMPEG_EXE = path.join(__dirname, "..", "bin", "ffmpeg", "ffmpeg.exe");
+//
+// Paths are env-overridable so the same code runs on the Windows host (these
+// defaults) and inside the Linux worker container (Dockerfile.worker sets
+// WHISPER_EXE/FFMPEG_EXE to the Linux tools and mounts the model).
+const WHISPER_EXE =
+  process.env.WHISPER_EXE || path.join(__dirname, "..", "bin", "whisper", "Release", "whisper-cli.exe");
+const WHISPER_MODEL =
+  process.env.WHISPER_MODEL || path.join(__dirname, "..", "bin", "whisper", "models", "ggml-base.bin");
+const FFMPEG_EXE = process.env.FFMPEG_EXE || path.join(__dirname, "..", "bin", "ffmpeg", "ffmpeg.exe");
+
+// A bare command name (no directory part, e.g. FFMPEG_EXE=ffmpeg in the
+// container) resolves via PATH at exec time, so only stat real paths here.
+const toolExists = (exe) => path.basename(exe) === exe || fs.existsSync(exe);
 
 const isSpeechToolingReady = () =>
-  fs.existsSync(WHISPER_EXE) && fs.existsSync(WHISPER_MODEL) && fs.existsSync(FFMPEG_EXE);
+  toolExists(WHISPER_EXE) && fs.existsSync(WHISPER_MODEL) && toolExists(FFMPEG_EXE);
 
 const run = (cmd, args) =>
   new Promise((resolve, reject) => {

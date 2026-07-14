@@ -33,3 +33,25 @@ services:
       - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+  # Containerized speech worker (Linux whisper/ffmpeg/python; see
+  # backend/Dockerfile.worker). Optional profile: `docker compose --profile
+  # containers up -d` runs it; without the profile, run the worker on the
+  # host with `npm run worker` instead (same code, host tooling). Both read
+  # the same queue, so they can even run side by side for extra throughput.
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    profiles: ["containers"]
+    env_file:
+      - ./backend/.env
+    environment:
+      RABBITMQ_URL: amqp://rabbitmq:5672
+      CONVERSATION_DB: carepulse_conversations
+    volumes:
+      - ./backend/storage:/app/storage
+      - ./backend/bin/whisper/models:/models:ro
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
