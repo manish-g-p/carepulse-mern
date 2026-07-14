@@ -163,6 +163,11 @@ export const transcribeLiveChunk = async (sessionId, audioBlob, source, target) 
   return data;
 };
 
+// ws:// (or wss:// under https) URL of the live-transcript WebSocket, derived
+// from the API base so it goes through the same gateway.
+export const getLiveSocketUrl = () =>
+  `${API_BASE_URL.replace(/^http/, "ws")}/conversations/live`;
+
 // Fetches the recorded audio through the authenticated route and returns a
 // blob URL suitable for an <audio> element's src.
 export const getConversationAudioUrl = async (sessionId) => {

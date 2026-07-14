@@ -8,7 +8,7 @@ const connectDB = require("./db");
 // is its own process with its own database; this factory keeps the common
 // Express plumbing (CORS, JSON, logging, health, error handling) identical
 // across them without copy-paste drift.
-const createService = ({ name, dbName, port, mount }) => {
+const createService = ({ name, dbName, port, mount, onServer }) => {
   const app = express();
 
   connectDB(dbName);
@@ -30,7 +30,10 @@ const createService = ({ name, dbName, port, mount }) => {
     res.status(err.status || 500).json({ message: err.message || "Server error" });
   });
 
-  app.listen(port, () => console.log(`[${name}] listening on ${port} (db: ${dbName})`));
+  const server = app.listen(port, () => console.log(`[${name}] listening on ${port} (db: ${dbName})`));
+  // Lets a service attach protocol handlers to the raw HTTP server -- the
+  // conversation service uses this for its live-transcript WebSocket.
+  onServer?.(server);
   return app;
 };
 

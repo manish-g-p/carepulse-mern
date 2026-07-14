@@ -5,6 +5,7 @@ import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import SessionTranscript from "../components/SessionTranscript";
 import {
+  getLiveSocketUrl,
   getTranslationLanguages,
   listConversations,
   lookupPatientByEmail,
@@ -18,6 +19,11 @@ import {
 // since its committed offset), but each pass still costs a few seconds of
 // whisper (+ translation when enabled) on CPU, so keep this coarse.
 const LIVE_TRANSCRIBE_INTERVAL_MS = 5000;
+
+// The WebSocket transport can send more often: the server processes one pass
+// at a time and keeps only the newest waiting frame, so extra sends are
+// dropped server-side instead of stacking up whisper work.
+const LIVE_WS_SEND_INTERVAL_MS = 3000;
 
 const Conversation = () => {
   const [email, setEmail] = useState("");
@@ -45,6 +51,7 @@ const Conversation = () => {
   const streamRef = useRef(null);
   const liveIntervalRef = useRef(null);
   const livePendingRef = useRef(false);
+  const liveSocketRef = useRef(null);
   // Refs mirror the pickers so the already-running live loop sees changes
   // made mid-recording (the interval closure would otherwise hold stale state).
   const liveSourceRef = useRef("en");
@@ -87,13 +94,18 @@ const Conversation = () => {
     if (liveIntervalRef.current) clearInterval(liveIntervalRef.current);
     liveIntervalRef.current = null;
     livePendingRef.current = false;
+    if (liveSocketRef.current) {
+      liveSocketRef.current.onclose = null; // don't treat our own close as a failure
+      liveSocketRef.current.close();
+      liveSocketRef.current = null;
+    }
   };
 
-  // Periodically sends the audio-so-far for a quick transcription pass so the
-  // transcript fills in while the doctor is still recording. Skips a tick if
-  // the previous pass hasn't come back yet (whisper on CPU can be slower than
-  // the interval), and never lets a failed pass interrupt the recording.
-  const startLiveLoop = (sessionId) => {
+  // HTTP-polling live loop -- the fallback transport. Periodically posts the
+  // audio-so-far for a transcription pass. Skips a tick if the previous pass
+  // hasn't come back yet (whisper on CPU can be slower than the interval),
+  // and never lets a failed pass interrupt the recording.
+  const startHttpLiveLoop = (sessionId) => {
     liveIntervalRef.current = setInterval(async () => {
       if (livePendingRef.current || chunksRef.current.length === 0) return;
       livePendingRef.current = true;
@@ -112,6 +124,79 @@ const Conversation = () => {
       }
       livePendingRef.current = false;
     }, LIVE_TRANSCRIBE_INTERVAL_MS);
+  };
+
+  // Primary live transport (Day 25): a WebSocket through the gateway. Sends
+  // the recording-so-far as binary frames; the server pushes transcript
+  // updates as passes finish (dropping stale frames while whisper is busy).
+  // Any failure -- socket won't open, server rejects, connection drops
+  // mid-recording -- falls back to the HTTP polling loop; both transports
+  // share server-side state, so no transcript progress is lost switching.
+  const startLiveLoop = (sessionId) => {
+    let fellBack = false;
+    const fallBack = () => {
+      if (fellBack) return;
+      fellBack = true;
+      console.warn("live socket unavailable; falling back to HTTP polling");
+      stopLiveLoop();
+      startHttpLiveLoop(sessionId);
+    };
+
+    let socket;
+    try {
+      socket = new WebSocket(getLiveSocketUrl());
+    } catch {
+      return fallBack();
+    }
+    liveSocketRef.current = socket;
+    let lastConfig = "";
+
+    socket.onopen = () => {
+      const source = liveTargetRef.current ? liveSourceRef.current : "";
+      const target = liveTargetRef.current;
+      lastConfig = `${source}->${target}`;
+      socket.send(
+        JSON.stringify({
+          type: "start",
+          token: localStorage.getItem("doctorToken"),
+          sessionId,
+          source,
+          target,
+        })
+      );
+    };
+
+    socket.onmessage = (event) => {
+      let msg;
+      try {
+        msg = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      if (msg.type === "transcript") {
+        setLiveTranscript(msg.transcript);
+        setLiveTranslated(msg.translatedTranscript || "");
+      } else if (msg.type === "ready") {
+        // Authenticated: start streaming the recording-so-far.
+        liveIntervalRef.current = setInterval(async () => {
+          if (socket.readyState !== WebSocket.OPEN || chunksRef.current.length === 0) return;
+          const source = liveTargetRef.current ? liveSourceRef.current : "";
+          const target = liveTargetRef.current;
+          const config = `${source}->${target}`;
+          if (config !== lastConfig) {
+            lastConfig = config;
+            socket.send(JSON.stringify({ type: "config", source, target }));
+          }
+          const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+          socket.send(await blob.arrayBuffer());
+        }, LIVE_WS_SEND_INTERVAL_MS);
+      } else if (msg.type === "error") {
+        console.error("live socket error:", msg.message);
+      }
+    };
+
+    socket.onerror = fallBack;
+    socket.onclose = fallBack;
   };
 
   useEffect(() => stopLiveLoop, []); // clear the loop if the page unmounts mid-recording

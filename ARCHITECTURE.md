@@ -221,3 +221,12 @@ push what's real for that day rather than padding it out.
 - [ ] Medication-reminder notifications derived from the transcript
 - [x] Multi-speaker sessions — **Day 15**: 2-4 people in the room, "patient party"
       separated into its own speaker cluster.
+- [x] WebSocket live transcript — **Day 25**: the live transcript's primary
+      transport is now a WebSocket through the gateway
+      (`ws://…/api/conversations/live`, first-message JWT auth so tokens stay
+      out of access logs; binary frames = recording-so-far; server pushes
+      transcript updates, keeping only the newest frame while whisper is
+      busy). The 5s HTTP polling route remains as an automatic fallback, and
+      both transports share the same per-session incremental state
+      (`services/liveTranscribeService.js`), so a client can switch mid-
+      recording without losing transcript progress.

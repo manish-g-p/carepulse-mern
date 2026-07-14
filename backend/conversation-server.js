@@ -5,6 +5,7 @@
 // purely by the JWT's doctorId; never queries the auth service's data.
 const createService = require("./config/createService");
 const conversationRoutes = require("./routes/conversationRoutes");
+const { attachLiveSocket } = require("./services/liveSocket");
 
 createService({
   name: "conversation-service",
@@ -13,4 +14,8 @@ createService({
   mount: (app) => {
     app.use("/api/conversations", conversationRoutes);
   },
+  // Live-transcript WebSocket (ws://.../api/conversations/live) -- the
+  // primary live transport since Day 25; the POST /:id/live route stays as
+  // the polling fallback.
+  onServer: attachLiveSocket,
 });
