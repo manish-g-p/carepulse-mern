@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const jwt = require("jsonwebtoken");
 const ConversationSession = require("../models/ConversationSession");
 const AuditLog = require("../models/AuditLog");
 const { buildTranscriptWorkbook } = require("../services/excelService");
@@ -288,6 +289,48 @@ const getConversationExcel = async (req, res) => {
   }
 };
 
+// How long a signed download link stays valid. Short on purpose: the link
+// carries no other auth, so anyone holding it within the window can use it.
+const DOWNLOAD_URL_TTL_SECONDS = 300;
+
+// POST /api/conversations/:id/download-url  { kind: "audio" | "excel" }
+// Mints a short-lived signed URL for this session's audio or Excel export.
+// Ownership is checked HERE, at issuance; the redeeming GET only has to
+// verify the signature and that the token matches the route. Patients can
+// only get excel links (audio stays doctor-only, same as the plain route).
+const createDownloadUrl = async (req, res) => {
+  try {
+    const { kind } = req.body;
+    if (!["audio", "excel"].includes(kind)) {
+      return res.status(400).json({ message: "kind must be \"audio\" or \"excel\"" });
+    }
+    if (kind === "audio" && req.auth.role !== "doctor") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    const session = await ConversationSession.findOne({
+      _id: req.params.id,
+      ...sessionScope(req.auth),
+    });
+    if (!session) return res.status(404).json({ message: "Session not found" });
+
+    // Only the identity fields -- not the original token's own iat/exp.
+    const actor = { role: req.auth.role, doctorId: req.auth.doctorId, userId: req.auth.userId };
+    const sig = jwt.sign(
+      { role: "download", kind, sessionId: session._id.toString(), actor },
+      process.env.JWT_SECRET,
+      { expiresIn: DOWNLOAD_URL_TTL_SECONDS }
+    );
+    res.status(201).json({
+      url: `/api/conversations/${session._id}/${kind}?sig=${sig}`,
+      expiresInSeconds: DOWNLOAD_URL_TTL_SECONDS,
+    });
+  } catch (error) {
+    console.error("createDownloadUrl error:", error);
+    res.status(500).json({ message: "Failed to create download link" });
+  }
+};
+
 // GET /api/conversations/:id/audio  (doctor must own the session)
 const getConversationAudio = async (req, res) => {
   try {
@@ -332,6 +375,7 @@ const getConversationAudit = async (req, res) => {
 };
 
 module.exports = {
+  createDownloadUrl,
   listConversations,
   getConversation,
   deleteConversation,

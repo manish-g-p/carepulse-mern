@@ -184,12 +184,18 @@ export const deleteReminder = async (reminderId) => {
 export const getLiveSocketUrl = () =>
   `${API_BASE_URL.replace(/^http/, "ws")}/conversations/live`;
 
-// Fetches the recorded audio through the authenticated route and returns a
-// blob URL suitable for an <audio> element's src.
-export const getConversationAudioUrl = async (sessionId) => {
-  const { data } = await api.get(`/conversations/${sessionId}/audio`, { responseType: "blob" });
-  return URL.createObjectURL(data);
+// Asks the API for a short-lived signed download URL (Day 28) and returns it
+// as an absolute URL through the gateway -- usable directly as an <audio>
+// src or <a href> with no auth header.
+export const getSignedDownloadUrl = async (sessionId, kind) => {
+  const { data } = await api.post(`/conversations/${sessionId}/download-url`, { kind });
+  return `${API_BASE_URL.replace(/\/api$/, "")}${data.url}`;
 };
+
+// Recorded-audio playback source: a signed URL the <audio> element can
+// stream from directly (previously this fetched the whole blob with the
+// auth header and built an object URL).
+export const getConversationAudioUrl = (sessionId) => getSignedDownloadUrl(sessionId, "audio");
 
 export const updateSpeakerRoles = async (sessionId, speakerRoles) => {
   const { data } = await api.put(`/conversations/${sessionId}/speaker-roles`, { speakerRoles });

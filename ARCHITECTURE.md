@@ -149,7 +149,15 @@ push what's real for that day rather than padding it out.
 ### Phase 4 — Harden security
 - [ ] Field-level encryption for transcript text
 - [ ] Audit log collection + a simple admin view of it
-- [ ] Signed short-lived download URLs for audio/Excel
+- [x] Signed short-lived download URLs for audio/Excel — **Day 28**:
+      `POST /:id/download-url {kind}` checks ownership at issuance and mints
+      a 5-minute JWT pinned to one session + kind, embedding the requester's
+      identity as `actor`; the audio/Excel GETs accept `?sig=` as an
+      alternative to the bearer header (the middleware makes `actor` the
+      request's auth, so scoping and audit attribution work identically).
+      Patients can only mint Excel links (audio stays doctor-only). The
+      in-app audio player now streams from a signed URL instead of fetching
+      an auth-headered blob.
 - [x] Retention policy + delete endpoint — delete endpoint since **Day 13**
       (right-to-delete: session + audio + audit, hard delete); retention
       windows since **Day 27**: each service sweeps its OWN data daily when

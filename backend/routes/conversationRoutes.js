@@ -1,7 +1,8 @@
 const express = require("express");
-const { requireAuth } = require("../middleware/auth");
+const { requireAuth, requireAuthOrSignedUrl } = require("../middleware/auth");
 const uploadAudio = require("../middleware/uploadAudio");
 const {
+  createDownloadUrl,
   listConversations,
   getConversation,
   deleteConversation,
@@ -29,8 +30,11 @@ router.put("/:id/stop", requireAuth("doctor"), uploadAudio.single("audio"), stop
 router.post("/:id/live", requireAuth("doctor"), uploadAudio.single("audio"), transcribeLive);
 router.put("/:id/speaker-roles", requireAuth("doctor"), updateSpeakerRoles);
 router.post("/:id/translate", requireAuth("doctor"), translateConversation);
-router.get("/:id/excel", requireAuth("doctor", "patient"), getConversationExcel);
-router.get("/:id/audio", requireAuth("doctor"), getConversationAudio);
+// Downloads accept a bearer token OR a short-lived signed URL (?sig=) minted
+// by POST /:id/download-url -- ownership is checked at issuance there.
+router.post("/:id/download-url", requireAuth("doctor", "patient"), createDownloadUrl);
+router.get("/:id/excel", requireAuthOrSignedUrl("excel", "doctor", "patient"), getConversationExcel);
+router.get("/:id/audio", requireAuthOrSignedUrl("audio", "doctor"), getConversationAudio);
 router.get("/:id/audit", requireAuth("doctor"), getConversationAudit);
 router.get("/:id", requireAuth("doctor", "patient"), getConversation);
 router.delete("/:id", requireAuth("doctor"), deleteConversation);
