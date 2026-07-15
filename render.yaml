@@ -1,0 +1,34 @@
+# Render blueprint for the free-tier CarePulse backend (combined single
+# process -- see backend/combined-server.js). Deploy via Render's "New +
+# Blueprint" against this repo, then fill in the secret env vars in the
+# dashboard (they are intentionally NOT stored here -- this file is public).
+#
+# The heavy AI (whisper/diarization/NLLB) is NOT part of this deploy; it needs
+# more RAM than a free instance has. Recording/transcription/translation run
+# in the local docker stack (see DEPLOY.md). Everything else works live.
+services:
+  - type: web
+    name: carepulse-api
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      # Secrets -- set these in the Render dashboard (sync:false = not in repo).
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: ADMIN_PASSKEY
+        sync: false
+      - key: AUDIO_ENCRYPTION_KEY
+        sync: false
+      # Your deployed frontend origin, e.g. https://carepulse.vercel.app
+      # (comma-separated if more than one). Enables CORS from the frontend.
+      - key: CLIENT_ORIGIN
+        sync: false
+      # One database for the combined instance (the split uses four).
+      - key: COMBINED_DB
+        value: carepulse

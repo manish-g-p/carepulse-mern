@@ -300,6 +300,16 @@ const Conversation = () => {
       </header>
 
       <main className="space-y-8">
+        {import.meta.env.VITE_DEMO_MODE === "true" && (
+          <div className="rounded-md border border-yellow-600/50 bg-yellow-600/10 p-3 text-14-regular text-yellow-200">
+            <span className="font-semibold">Demo mode.</span> Recording and account
+            flows work here, but live transcription, diarization, and translation run
+            on-device and need the full local stack (they need more memory than a free
+            host provides). To try the AI features, clone the repo and run{" "}
+            <code className="rounded bg-dark-400 px-1">docker compose up</code> — see the
+            README.
+          </div>
+        )}
         {!activeSession && (
           <section className="max-w-md space-y-4">
             <h1 className="header">Find the patient</h1>
