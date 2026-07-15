@@ -207,3 +207,54 @@ nginx gateway — that's the real, scalable architecture. A single free instance
 host four always-on services, so `backend/combined-server.js` mounts all of their
 routes in **one** process against **one** database. Same route code, same models, same
 JWTs — only the composition differs. It's a deliberate hosting trade-off, not a rewrite.
+
+---
+
+# Optional: full stack **with transcription**, free, no credit card (Hugging Face Spaces)
+
+The Vercel + Render demo above deliberately leaves the AI out (Render free =
+512 MB). If you want **real transcription + diarization live on a public URL at
+$0 and with no credit card**, host the backend on a **Hugging Face Space**
+instead of Render — the free CPU Space has **16 GB RAM**, and signup is email
+only.
+
+Files for this live in [`hf-space/`](hf-space/): a `Dockerfile` (Ubuntu + Node +
+ffmpeg + whisper.cpp + the Python diarization deps; it clones this repo and runs
+`combined-server.js` with in-process speech) and a `README.md` with the Space
+metadata.
+
+### Steps
+
+1. **Create the Space.** <https://huggingface.co> → sign up (email, **no card**) →
+   **New → Space**. Name it e.g. `carepulse-api`, **SDK = Docker**, **blank**
+   template, public.
+2. **Add the two files.** In the Space's **Files** tab, upload (or `git push`) the
+   contents of [`hf-space/`](hf-space/) — the `Dockerfile` and `README.md` — to the
+   Space repo **root**. (The Dockerfile clones this GitHub repo at build time, so
+   nothing else is needed.)
+3. **Set secrets.** Space **Settings → Variables and secrets** → add as *secrets*:
+   `MONGO_URI`, `JWT_SECRET`, `ADMIN_PASSKEY`, `AUDIO_ENCRYPTION_KEY`, and
+   `CLIENT_ORIGIN` (your Vercel URL, no trailing slash). `COMBINED_DB` and `PORT`
+   are already set in the Dockerfile.
+4. **Build.** The Space builds on push (a few minutes — it compiles the image and
+   downloads the whisper model). When the status is **Running**, your API is at
+   `https://<user>-carepulse-api.hf.space`. Test `…/api/health`.
+5. **Repoint the frontend.** In Vercel → project → **Settings → Environment
+   Variables**, change `VITE_API_URL` to `https://<user>-carepulse-api.hf.space/api`
+   and set `VITE_DEMO_MODE` to `false` (transcription works now, so drop the
+   banner) → **Redeploy**.
+6. **Verify.** On the site: register a doctor → new conversation → record a few
+   seconds → stop. After ~20–40s (free CPU) the session shows a **real transcript
+   with speaker labels**.
+
+### Notes / limits
+
+- **Slower than local:** free CPU transcribes a short clip in ~20–40s.
+- **Pauses after ~48h idle** (wakes on visit), like Render's cold start.
+- **Translation (NLLB) is not in this image** — it re-downloads a ~2.4 GB model on
+  each cold start, so it's a poor fit for a free CPU Space; the translate UI hides
+  itself when absent. (Local `docker compose` still does translation.)
+- **Updating the backend:** push to GitHub, then **Factory rebuild** the Space to
+  re-clone.
+- With the backend on the Space, the Render service is redundant — you can keep or
+  delete it.
