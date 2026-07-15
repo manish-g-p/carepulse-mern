@@ -3,6 +3,7 @@ const { requireAuth, requireAuthOrSignedUrl } = require("../middleware/auth");
 const uploadAudio = require("../middleware/uploadAudio");
 const {
   createDownloadUrl,
+  listAuditLog,
   listConversations,
   getConversation,
   deleteConversation,
@@ -24,8 +25,9 @@ const router = express.Router();
 // Controllers scope queries by role (see sessionScope in the controller).
 router.get("/", requireAuth("doctor", "patient"), listConversations);
 router.post("/", requireAuth("doctor"), startConversation);
-// Must come before "/:id" so "languages" isn't swallowed as a session id.
+// Must come before "/:id" so "languages"/"audit" aren't swallowed as ids.
 router.get("/languages", requireAuth("doctor"), getTranslationLanguages);
+router.get("/audit", requireAuth("admin"), listAuditLog);
 router.put("/:id/stop", requireAuth("doctor"), uploadAudio.single("audio"), stopConversation);
 router.post("/:id/live", requireAuth("doctor"), uploadAudio.single("audio"), transcribeLive);
 router.put("/:id/speaker-roles", requireAuth("doctor"), updateSpeakerRoles);

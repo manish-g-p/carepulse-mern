@@ -207,6 +207,12 @@ export const getConversationAudit = async (sessionId) => {
   return data;
 };
 
+// Admin-only: recent audit entries across all doctors (Day 30).
+export const getAdminAuditLog = async () => {
+  const { data } = await api.get("/conversations/audit");
+  return data;
+};
+
 export const getTranslationLanguages = async () => {
   const { data } = await api.get("/conversations/languages");
   return data;

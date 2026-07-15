@@ -22,6 +22,12 @@ export const AdminLoginModal = ({ onSuccess }) => {
     setError("");
     try {
       const { token } = await adminLogin(passkey);
+      // One role per browser session: a lingering doctor/patient token would
+      // win in the API client's token precedence and 403 every admin call.
+      localStorage.removeItem("doctorToken");
+      localStorage.removeItem("doctorInfo");
+      localStorage.removeItem("patientToken");
+      localStorage.removeItem("patientInfo");
       localStorage.setItem("adminToken", token);
       setOpen(false);
       onSuccess && onSuccess();

@@ -155,7 +155,12 @@ push what's real for that day rather than padding it out.
       translation — gets it transparently and Mongo never stores plaintext.
       `npm run migrate:encrypt-transcripts` rewrote existing rows (idempotent,
       prefix-checked, with a backup collection written first).
-- [ ] Audit log collection + a simple admin view of it
+- [x] Audit log collection (**Day 7**, append-only) + admin view — **Day 30**:
+      `GET /api/conversations/audit` (admin role) returns the most recent 200
+      entries across all doctors with the session's patient name joined
+      in-domain; the admin dashboard renders them under the appointments
+      table, with patient-via-portal downloads labeled. Doctor identities
+      stay opaque ids (they belong to the auth service).
 - [x] Signed short-lived download URLs for audio/Excel — **Day 28**:
       `POST /:id/download-url {kind}` checks ownership at issuance and mints
       a 5-minute JWT pinned to one session + kind, embedding the requester's

@@ -357,6 +357,34 @@ const getConversationAudio = async (req, res) => {
   }
 };
 
+// GET /api/conversations/audit  (admin only)
+// Recent audit entries across ALL doctors -- the admin's compliance view.
+// Both collections live in this service's database, so the patientName join
+// stays within the domain (doctorId is a cross-service id and is shown
+// as-is; the auth service owns doctor identities).
+const listAuditLog = async (req, res) => {
+  try {
+    const entries = await AuditLog.find({})
+      .sort({ at: -1 })
+      .limit(200)
+      .populate("sessionId", "patientName");
+    res.json(
+      entries.map((e) => ({
+        _id: e._id,
+        action: e.action,
+        actor: e.actor,
+        at: e.at,
+        doctorId: e.doctorId,
+        sessionId: e.sessionId?._id || null,
+        patientName: e.sessionId?.patientName || "(deleted session)",
+      }))
+    );
+  } catch (error) {
+    console.error("listAuditLog error:", error);
+    res.status(500).json({ message: "Failed to load audit log" });
+  }
+};
+
 // GET /api/conversations/:id/audit  (doctor must own the session)
 const getConversationAudit = async (req, res) => {
   try {
@@ -376,6 +404,7 @@ const getConversationAudit = async (req, res) => {
 
 module.exports = {
   createDownloadUrl,
+  listAuditLog,
   listConversations,
   getConversation,
   deleteConversation,

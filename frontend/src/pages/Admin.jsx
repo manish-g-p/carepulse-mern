@@ -3,11 +3,20 @@ import { Link } from "react-router-dom";
 import AdminLoginModal from "../components/AdminLoginModal";
 import StatCard from "../components/StatCard";
 import AppointmentsTable from "../components/table/AppointmentsTable";
-import { getRecentAppointmentList } from "../lib/api";
+import { getAdminAuditLog, getRecentAppointmentList } from "../lib/api";
+
+// Raw audit action -> readable label (same wording as the doctor's view).
+const AUDIT_ACTION_LABELS = {
+  start: "Recording started",
+  stop: "Recording stopped",
+  "download-audio": "Audio downloaded",
+  "download-excel": "Excel downloaded",
+};
 
 const Admin = () => {
   const [authenticated, setAuthenticated] = useState(!!localStorage.getItem("adminToken"));
   const [appointments, setAppointments] = useState(null);
+  const [auditLog, setAuditLog] = useState([]);
   const [error, setError] = useState("");
 
   const loadAppointments = useCallback(async () => {
@@ -25,7 +34,11 @@ const Admin = () => {
   }, []);
 
   useEffect(() => {
-    if (authenticated) loadAppointments();
+    if (!authenticated) return;
+    loadAppointments();
+    // Best-effort: the audit section simply stays empty if the conversation
+    // service is unreachable.
+    getAdminAuditLog().then(setAuditLog).catch(() => setAuditLog([]));
   }, [authenticated, loadAppointments]);
 
   if (!authenticated) {
@@ -77,6 +90,37 @@ const Admin = () => {
         </section>
 
         <AppointmentsTable data={appointments.documents} />
+
+        <section className="w-full space-y-4">
+          <h2 className="text-16-semibold">Recording audit log</h2>
+          <p className="text-dark-700 text-14-regular">
+            Who recorded or downloaded what, across all doctors (most recent first).
+          </p>
+          {auditLog.length === 0 ? (
+            <p className="text-dark-600 text-14-regular">No audit entries.</p>
+          ) : (
+            <ul className="space-y-1">
+              {auditLog.map((entry) => (
+                <li
+                  key={entry._id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dark-500 p-2 text-14-regular"
+                >
+                  <span className="text-white">
+                    {AUDIT_ACTION_LABELS[entry.action] || entry.action}
+                    {entry.actor === "patient" && (
+                      <span className="text-dark-600"> (by patient via portal)</span>
+                    )}
+                  </span>
+                  <span className="text-dark-600">{entry.patientName}</span>
+                  <span className="text-dark-600" title={`doctor ${entry.doctorId}`}>
+                    dr…{String(entry.doctorId).slice(-6)}
+                  </span>
+                  <span className="text-dark-600">{new Date(entry.at).toLocaleString()}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </main>
     </div>
   );
