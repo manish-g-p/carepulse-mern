@@ -1,5 +1,12 @@
 # CarePulse
 
+> ### 🔗 Live demo — **[carepulse-mern.vercel.app](https://carepulse-mern.vercel.app)**
+> Running free: frontend on Vercel, API on Render, database on MongoDB Atlas.
+> **First load can take ~30–60s** while the free backend wakes from sleep — click and wait once.
+> The on-device AI (recording → live transcript → diarization → translation) runs in the local
+> Docker stack, not the free demo; see **[DEPLOY.md](DEPLOY.md)** for how it's deployed and
+> [ARCHITECTURE.md](ARCHITECTURE.md) for the full system.
+
 A full-stack healthcare patient management system built with the MERN stack (MongoDB, Express, React, Node.js). CarePulse lets patients register, book appointments, and track their requests, while an admin dashboard gives staff a real-time view of scheduled, pending, and cancelled appointments.
 
 ## Features
