@@ -56,7 +56,9 @@ maintenance for no benefit, especially solo.
 
 ## Security checklist (PHI-grade, still free)
 
-- [ ] TLS in transit (free via Let's Encrypt when hosted)
+- [ ] TLS in transit (free via Let's Encrypt when hosted) — deferred until
+      there's a public host + domain; nothing to do while running on
+      localhost. This is the one remaining checklist item.
 - [x] AES-256 at rest for audio files (Node `crypto`, key from env var — free). Since
       **Day 29** transcript text (+ segment translations) is field-level encrypted too.
 - [x] RBAC: doctor sees only their own sessions, patient sees only their own
