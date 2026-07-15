@@ -13,7 +13,8 @@
     "setup:speech": "node scripts/setupSpeechTools.js",
     "setup:diarize": "node scripts/setupDiarizeTools.js",
     "setup:translate": "node scripts/setupTranslateTools.js",
-    "notifications": "nodemon notification-server.js"
+    "notifications": "nodemon notification-server.js",
+    "migrate:encrypt-transcripts": "node scripts/encryptTranscripts.js"
   },
   "dependencies": {
     "amqplib": "^2.0.1",

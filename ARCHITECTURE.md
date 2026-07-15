@@ -57,14 +57,15 @@ maintenance for no benefit, especially solo.
 ## Security checklist (PHI-grade, still free)
 
 - [ ] TLS in transit (free via Let's Encrypt when hosted)
-- [x] AES-256 at rest for audio files (Node `crypto`, key from env var — free). Transcript
-      text is not yet field-level encrypted, only the audio blob (Day 8 scope was audio).
+- [x] AES-256 at rest for audio files (Node `crypto`, key from env var — free). Since
+      **Day 29** transcript text (+ segment translations) is field-level encrypted too.
 - [x] RBAC: doctor sees only their own sessions, patient sees only their own
 - [x] Explicit recording consent captured with timestamp before recording can start
 - [x] Append-only audit log collection (who viewed/downloaded what, when)
-- [ ] Short-lived signed download links instead of public static paths (not needed — every
-      download route is already behind JWT auth + ownership check, no public static path exists)
-- [ ] Defined retention window + delete-on-request
+- [x] Short-lived signed download links — **Day 28** (every download route was already
+      behind JWT auth + ownership; signed 5-minute `?sig=` links added on top)
+- [x] Defined retention window (**Day 27**, opt-in `RETENTION_DAYS`) + delete-on-request
+      (**Day 13** right-to-delete endpoint)
 
 ## Roadmap — small, daily-commit-sized tasks
 
@@ -147,7 +148,13 @@ Each day's box maps to roughly one commit. If a day runs long or short, that's n
 push what's real for that day rather than padding it out.
 
 ### Phase 4 — Harden security
-- [ ] Field-level encryption for transcript text
+- [x] Field-level encryption for transcript text — **Day 29**: transcript +
+      segment text + translations are AES-256-GCM encrypted at rest
+      ("enc1:" base64 values, same key as the audio blobs) via mongoose
+      getters/setters, so every reader and writer — API, worker, Excel,
+      translation — gets it transparently and Mongo never stores plaintext.
+      `npm run migrate:encrypt-transcripts` rewrote existing rows (idempotent,
+      prefix-checked, with a backup collection written first).
 - [ ] Audit log collection + a simple admin view of it
 - [x] Signed short-lived download URLs for audio/Excel — **Day 28**:
       `POST /:id/download-url {kind}` checks ownership at issuance and mints

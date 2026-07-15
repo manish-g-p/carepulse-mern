@@ -1,4 +1,11 @@
 const mongoose = require("mongoose");
+const { encryptText, decryptText } = require("../services/textCryptoService");
+
+// Transcript text is encrypted at rest (Day 29) via field getters/setters --
+// every reader sees plaintext, Mongo only ever stores "enc1:..." values.
+// Legacy plaintext rows pass through the getter unchanged until the
+// migration script (scripts/encryptTranscripts.js) rewrites them.
+const encrypted = { type: String, default: "", get: decryptText, set: encryptText };
 
 const ConversationSessionSchema = new mongoose.Schema(
   {
@@ -19,7 +26,7 @@ const ConversationSessionSchema = new mongoose.Schema(
     // set when the doctor runs a translation on the session.
     languagePair: { type: String, default: "" },
     audioObjectKey: { type: String, default: "" },
-    transcript: { type: String, default: "" },
+    transcript: encrypted,
     transcriptStatus: {
       type: String,
       enum: ["none", "processing", "done", "failed"],
@@ -30,8 +37,8 @@ const ConversationSessionSchema = new mongoose.Schema(
         _id: false,
         startMs: Number,
         endMs: Number,
-        text: String,
-        translatedText: { type: String, default: "" },
+        text: encrypted,
+        translatedText: encrypted,
         speaker: String, // generic cluster label, e.g. "Speaker 1"
       },
     ],
@@ -40,7 +47,13 @@ const ConversationSessionSchema = new mongoose.Schema(
     // their generic label so relabeling never has to touch segment data.
     speakerRoles: { type: Map, of: String, default: {} },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    // Serialization must run the decrypting getters too, or res.json(doc)
+    // would leak ciphertext to the UI.
+    toJSON: { getters: true },
+    toObject: { getters: true },
+  }
 );
 
 module.exports = mongoose.model("ConversationSession", ConversationSessionSchema);
