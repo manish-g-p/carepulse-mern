@@ -6,6 +6,8 @@
 // queries the other services' data.
 const createService = require("./config/createService");
 const reminderRoutes = require("./routes/reminderRoutes");
+const { scheduleRetention } = require("./services/retentionService");
+const { sweepReminders } = require("./services/reminderRetention");
 
 createService({
   name: "notification-service",
@@ -15,3 +17,7 @@ createService({
     app.use("/api/reminders", reminderRoutes);
   },
 });
+
+// Retention (Day 27): purges reminders whose course ended more than
+// RETENTION_DAYS ago. Disabled unless that env var is set.
+scheduleRetention("reminders", sweepReminders);

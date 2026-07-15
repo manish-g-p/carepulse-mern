@@ -150,7 +150,15 @@ push what's real for that day rather than padding it out.
 - [ ] Field-level encryption for transcript text
 - [ ] Audit log collection + a simple admin view of it
 - [ ] Signed short-lived download URLs for audio/Excel
-- [ ] Retention policy + delete endpoint
+- [x] Retention policy + delete endpoint — delete endpoint since **Day 13**
+      (right-to-delete: session + audio + audit, hard delete); retention
+      windows since **Day 27**: each service sweeps its OWN data daily when
+      `RETENTION_DAYS` is set — conversation-service ages out completed
+      sessions (audio blob + audit entries + document; in-progress sessions
+      never touched), notification-service purges reminders whose course
+      ended more than the window ago (open-ended ones never auto-deleted).
+      UNSET = disabled: nothing is ever auto-deleted without explicit opt-in,
+      which matters because deletion is hard (no soft-delete tier at $0).
 
 ### Phase 5 — Extract services (only once Phase 1-4 work and feel slow)
 - [x] **Day 20** — Speech worker extracted from the API: the heavy pipeline

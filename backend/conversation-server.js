@@ -6,6 +6,8 @@
 const createService = require("./config/createService");
 const conversationRoutes = require("./routes/conversationRoutes");
 const { attachLiveSocket } = require("./services/liveSocket");
+const { scheduleRetention } = require("./services/retentionService");
+const { sweepConversations } = require("./services/conversationRetention");
 
 createService({
   name: "conversation-service",
@@ -19,3 +21,7 @@ createService({
   // the polling fallback.
   onServer: attachLiveSocket,
 });
+
+// Retention (Day 27): hard-deletes completed sessions older than
+// RETENTION_DAYS. Disabled unless that env var is set.
+scheduleRetention("conversation-sessions", sweepConversations);
