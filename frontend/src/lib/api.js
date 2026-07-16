@@ -179,10 +179,19 @@ export const deleteReminder = async (reminderId) => {
   return data;
 };
 
-// ws:// (or wss:// under https) URL of the live-transcript WebSocket, derived
-// from the API base so it goes through the same gateway.
-export const getLiveSocketUrl = () =>
-  `${API_BASE_URL.replace(/^http/, "ws")}/conversations/live`;
+// ws(s):// URL of the live-transcript WebSocket, derived from the API base so
+// it goes through the same gateway.
+export const getLiveSocketUrl = () => {
+  // Absolute API base (e.g. http://localhost:8080/api): just swap the scheme.
+  if (/^https?:\/\//.test(API_BASE_URL)) {
+    return `${API_BASE_URL.replace(/^http/, "ws")}/conversations/live`;
+  }
+  // Relative base (e.g. "/api", used for same-origin hosting / a tunnel):
+  // build an absolute ws(s):// URL from the current page origin, so it works
+  // over HTTPS tunnels (wss) too. WebSocket() requires an absolute URL.
+  const proto = window.location.protocol === "https:" ? "wss" : "ws";
+  return `${proto}://${window.location.host}${API_BASE_URL}/conversations/live`;
+};
 
 // Asks the API for a short-lived signed download URL (Day 28) and returns it
 // as an absolute URL through the gateway -- usable directly as an <audio>

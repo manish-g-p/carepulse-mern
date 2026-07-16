@@ -1,3 +1,6 @@
 node_modules
 dist
 .env
+
+# Local env overrides (e.g. tunnel demo mode) - never committed
+.env.local

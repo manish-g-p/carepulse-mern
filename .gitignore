@@ -1,2 +1,5 @@
 # Local session-handoff notes — contain real secrets, never commit.
 HANDOFF.md
+
+# Downloaded cloudflared binary for tunnel demos (not committed)
+tools/

@@ -258,3 +258,29 @@ metadata.
   re-clone.
 - With the backend on the Space, the Render service is redundant — you can keep or
   delete it.
+
+---
+
+# The proven $0 path for live AI: Cloudflare quick tunnel (`start-demo.bat`)
+
+> **Update:** Hugging Face made compute (Docker) Spaces PRO-only — the section
+> above no longer works on a free account. The zero-cost, zero-card way to show
+> the FULL pipeline (transcription + diarization + translation) on a public URL
+> is a **Cloudflare quick tunnel** in front of the local Docker stack.
+
+Double-click **[`start-demo.bat`](start-demo.bat)** at the repo root. It:
+
+1. starts Docker Desktop if it isn't running,
+2. brings up the full stack (`docker compose --profile containers up -d`),
+3. writes `frontend/.env.local` (same-origin `/api`, demo banner off) if missing,
+4. starts the Vite frontend in its own window,
+5. downloads `cloudflared` once into `tools/` (gitignored), and
+6. opens the tunnel — the banner prints your public
+   `https://<random>.trycloudflare.com` URL.
+
+**Reality check:** the URL changes on every run, and the link is live only while
+the window is open and the laptop is on — it's a "turn it on for the demo" link.
+The always-on Vercel + Render deploy above stays your 24/7 link for everything
+except the AI. Frontend support for this mode (relative `VITE_API_URL=/api`,
+`wss://` live-transcript URL derived from the page origin, and
+`.trycloudflare.com` in Vite's `allowedHosts`) is committed.
