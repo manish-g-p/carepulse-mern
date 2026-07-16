@@ -259,6 +259,14 @@ push what's real for that day rather than padding it out.
       be the free upgrade path.
 - [x] Multi-speaker sessions — **Day 15**: 2-4 people in the room, "patient party"
       separated into its own speaker cluster.
+- [x] Whisper model upgrade — **Day 32**: default model is now **small**
+      (~466MB) rather than base. Measured on a 3-speaker test consultation:
+      drug names ("omeprazole", "metformin") transcribe correctly where base
+      mangled them, taking medication key-item extraction from **0/3 to 2/3**;
+      ~50s end-to-end for a 44s clip (whisper + diarization). Model files are
+      gitignored — `.env.example` has the curl to fetch it; containers pin
+      `WHISPER_MODEL=/models/ggml-small.bin` in docker-compose (compose
+      `environment` beats `env_file`, so the host's Windows path can't leak in).
 - [x] Neural diarization upgrade — **Day 31**: `diarizeService` now tries
       **pyannote.audio** first (HF_TOKEN + gated licenses accepted; runs in the
       C:\cpt venv, reusing NLLB's torch) and falls back to the original MFCC

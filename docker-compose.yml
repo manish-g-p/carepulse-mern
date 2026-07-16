@@ -97,6 +97,11 @@ services:
       RABBITMQ_URL: amqp://rabbitmq:5672
       CONVERSATION_DB: carepulse_conversations
       TRANSLATE_URL: http://host.docker.internal:5555  # NLLB stays on the host
+      # Must be set here, not left to env_file: backend/.env carries the HOST
+      # (Windows) model path, which is meaningless inside the container.
+      # `environment` wins over `env_file` in compose. small > base on drug
+      # names (Day 32); both models sit in the mounted models dir.
+      WHISPER_MODEL: /models/ggml-small.bin
     volumes:
       - ./backend/storage:/app/storage                 # encrypted audio (shared w/ worker)
       - ./backend/bin/whisper/models:/models:ro
@@ -115,6 +120,9 @@ services:
     environment:
       RABBITMQ_URL: amqp://rabbitmq:5672
       CONVERSATION_DB: carepulse_conversations
+      # See conversation-service above: pin the container path so the host's
+      # Windows WHISPER_MODEL from env_file can't leak in.
+      WHISPER_MODEL: /models/ggml-small.bin
     volumes:
       - ./backend/storage:/app/storage
       - ./backend/bin/whisper/models:/models:ro
