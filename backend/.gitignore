@@ -7,3 +7,7 @@ storage/*
 bin/
 pyservices/venv/
 pyservices/__pycache__/
+
+# Any .env variant (backups etc) - real secrets, never commit
+.env*
+!.env.example
