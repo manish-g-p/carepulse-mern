@@ -10,7 +10,10 @@ const path = require("path");
 //      - HF_TOKEN env (free Hugging Face READ token, gated model licenses
 //        accepted once on that account), and
 //      - a python with pyannote installed: PYANNOTE_PYTHON env, defaulting to
-//        the C:\cpt venv that already hosts torch for translation.
+//        the D:\cpt venv that already hosts torch for translation. (Short
+//        drive-root path on purpose: torch's deep file tree blows past
+//        MAX_PATH under the repo. On D: rather than C: to keep the multi-GB
+//        install off the system drive.)
 // 2. MFCC clustering (librosa + scikit-learn) -- the original $0 fallback;
 //    fine for clearly-different voices, weak on same-room similar voices.
 //    Runs via PYTHON_EXE (pyservices/venv on Windows, /opt/pyenv in the
@@ -22,7 +25,7 @@ const path = require("path");
 // the same graceful-degradation rule as the broker and translation.
 const VENV_PYTHON =
   process.env.PYTHON_EXE || path.join(__dirname, "..", "pyservices", "venv", "Scripts", "python.exe");
-const PYANNOTE_PYTHON = process.env.PYANNOTE_PYTHON || "C:\\cpt\\Scripts\\python.exe";
+const PYANNOTE_PYTHON = process.env.PYANNOTE_PYTHON || "D:\\cpt\\Scripts\\python.exe";
 const DIARIZE_SCRIPT = path.join(__dirname, "..", "pyservices", "diarize.py");
 const PYANNOTE_SCRIPT = path.join(__dirname, "..", "pyservices", "diarize_pyannote.py");
 

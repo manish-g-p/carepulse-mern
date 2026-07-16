@@ -229,7 +229,7 @@ push what's real for that day rather than padding it out.
       topology. The gateway now routes to container DNS names via variable
       `proxy_pass` + Docker's embedded resolver (so nginx still starts when
       the profile is down). Still on the host: the Vite frontend (HMR-speed
-      dev) and the NLLB translate server (torch venv at C:\cpt, MAX_PATH),
+      dev) and the NLLB translate server (torch venv at D:\cpt, MAX_PATH),
       both reached via host.docker.internal.
 
 ### Phase 6 — Extras
@@ -269,7 +269,7 @@ push what's real for that day rather than padding it out.
       `environment` beats `env_file`, so the host's Windows path can't leak in).
 - [x] Neural diarization upgrade — **Day 31**: `diarizeService` now tries
       **pyannote.audio** first (HF_TOKEN + gated licenses accepted; runs in the
-      C:\cpt venv, reusing NLLB's torch) and falls back to the original MFCC
+      D:\cpt venv, reusing NLLB's torch) and falls back to the original MFCC
       clustering on any failure — containers, which don't ship pyannote, fall
       back automatically. Whisper segments are assigned the speaker they
       overlap most with. Dramatically better separation on real same-room
