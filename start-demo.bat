@@ -31,6 +31,12 @@ if errorlevel 1 (
   exit /b 1
 )
 
+REM --- 2b. Speech worker on the HOST instead of the container: the host has
+REM     pyannote neural diarization (HF_TOKEN in backend\.env), which the
+REM     container image doesn't. Same queue either way.
+docker compose stop worker >nul 2>&1
+start "CarePulse speech worker" cmd /k "cd backend && npm run worker"
+
 REM --- 3. Frontend env for same-origin API through the gateway/tunnel ---
 if not exist frontend\.env.local (
   echo VITE_API_URL=/api> frontend\.env.local

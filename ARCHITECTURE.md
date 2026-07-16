@@ -259,6 +259,13 @@ push what's real for that day rather than padding it out.
       be the free upgrade path.
 - [x] Multi-speaker sessions — **Day 15**: 2-4 people in the room, "patient party"
       separated into its own speaker cluster.
+- [x] Neural diarization upgrade — **Day 31**: `diarizeService` now tries
+      **pyannote.audio** first (HF_TOKEN + gated licenses accepted; runs in the
+      C:\cpt venv, reusing NLLB's torch) and falls back to the original MFCC
+      clustering on any failure — containers, which don't ship pyannote, fall
+      back automatically. Whisper segments are assigned the speaker they
+      overlap most with. Dramatically better separation on real same-room
+      voices; the Day 4 MFCC approach remains the zero-setup fallback.
 - [x] WebSocket live transcript — **Day 25**: the live transcript's primary
       transport is now a WebSocket through the gateway
       (`ws://…/api/conversations/live`, first-message JWT auth so tokens stay
