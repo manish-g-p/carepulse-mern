@@ -15,6 +15,10 @@ const WHISPER_EXE =
 const WHISPER_MODEL =
   process.env.WHISPER_MODEL || path.join(__dirname, "..", "bin", "whisper", "models", "ggml-base.bin");
 const FFMPEG_EXE = process.env.FFMPEG_EXE || path.join(__dirname, "..", "bin", "ffmpeg", "ffmpeg.exe");
+// whisper.cpp defaults to 4 threads; this machine has 16 logical cores, and
+// 8 threads measured ~25% faster on the small model (12 adds little and
+// starves the other services). Env-overridable per host.
+const WHISPER_THREADS = Number(process.env.WHISPER_THREADS) || 8;
 
 // A bare command name (no directory part, e.g. FFMPEG_EXE=ffmpeg in the
 // container) resolves via PATH at exec time, so only stat real paths here.
@@ -53,7 +57,10 @@ const convertToWav = async (audioPath, offsetMs = 0) => {
 const wavDurationMs = (wavPath) => Math.max(0, Math.floor((fs.statSync(wavPath).size - 44) / 32));
 
 // Transcribes a WAV file to timestamped segments via whisper.cpp's JSON output.
-// Returns { text, segments: [{ startMs, endMs, text }] }.
+// Returns { text, segments: [{ startMs, endMs, text }], language } — language
+// is whisper's auto-detected ISO code (e.g. "en", "hi"), which the translate
+// flow uses as the default source so the user doesn't have to say what
+// language was spoken.
 const transcribeSegments = async (wavPath) => {
   if (!isSpeechToolingReady()) {
     throw new Error("Speech tooling not installed. Run: npm run setup:speech (in backend/)");
@@ -63,8 +70,11 @@ const transcribeSegments = async (wavPath) => {
   const jsonPath = `${outBase}.json`;
 
   try {
-    await run(WHISPER_EXE, ["-m", WHISPER_MODEL, "-f", wavPath, "-oj", "-of", outBase, "-l", "auto", "-np"]);
-    if (!fs.existsSync(jsonPath)) return { text: "", segments: [] };
+    await run(WHISPER_EXE, [
+      "-m", WHISPER_MODEL, "-f", wavPath, "-oj", "-of", outBase,
+      "-l", "auto", "-np", "-t", String(WHISPER_THREADS),
+    ]);
+    if (!fs.existsSync(jsonPath)) return { text: "", segments: [], language: "" };
 
     const parsed = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
     const segments = (parsed.transcription || []).map((seg) => ({
@@ -73,7 +83,8 @@ const transcribeSegments = async (wavPath) => {
       text: seg.text.trim(),
     }));
     const text = segments.map((s) => s.text).join(" ").trim();
-    return { text, segments };
+    const language = (parsed.result && parsed.result.language) || "";
+    return { text, segments, language };
   } finally {
     fs.rmSync(jsonPath, { force: true });
   }

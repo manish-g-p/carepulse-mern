@@ -25,6 +25,10 @@ const ConversationSessionSchema = new mongoose.Schema(
     // e.g. "en->hi": the language the transcript was translated into (target),
     // set when the doctor runs a translation on the session.
     languagePair: { type: String, default: "" },
+    // Whisper's auto-detected spoken language for the recording (ISO code,
+    // e.g. "en", "hi", "kn"). Used as the default translation source so the
+    // doctor can translate without saying what language was spoken (Day 33).
+    detectedLanguage: { type: String, default: "" },
     audioObjectKey: { type: String, default: "" },
     transcript: encrypted,
     transcriptStatus: {

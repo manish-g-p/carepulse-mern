@@ -63,7 +63,8 @@ const highlightText = (text, phraseColors) => {
 const SessionTranscript = ({ session, onUpdate, readOnly = false }) => {
   const [audioUrl, setAudioUrl] = useState(null);
   const [languages, setLanguages] = useState([]);
-  const [sourceLang, setSourceLang] = useState("en");
+  // "" = let the backend use whisper's auto-detected spoken language.
+  const [sourceLang, setSourceLang] = useState("");
   const [targetLang, setTargetLang] = useState("");
   const [isTranslating, setIsTranslating] = useState(false);
   const [translateError, setTranslateError] = useState("");
@@ -114,7 +115,12 @@ const SessionTranscript = ({ session, onUpdate, readOnly = false }) => {
   const speak = (text) => {
     if (!("speechSynthesis" in window)) return;
     const target = (session.languagePair || "").split("->")[1];
-    const langTag = { en: "en-US", hi: "hi-IN", kn: "kn-IN" }[target] || "en-US";
+    const langTag = {
+      en: "en-US", hi: "hi-IN", kn: "kn-IN", ta: "ta-IN", te: "te-IN",
+      ml: "ml-IN", mr: "mr-IN", bn: "bn-IN", gu: "gu-IN", pa: "pa-IN",
+      ur: "ur-PK", es: "es-ES", fr: "fr-FR", de: "de-DE", ar: "ar-SA",
+      ru: "ru-RU", zh: "zh-CN", ja: "ja-JP",
+    }[target] || "en-US";
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = langTag;
@@ -135,7 +141,7 @@ const SessionTranscript = ({ session, onUpdate, readOnly = false }) => {
   };
 
   const translate = async () => {
-    if (!sourceLang || !targetLang) return;
+    if (!targetLang) return; // empty source = auto-detected on the backend
     setIsTranslating(true);
     setTranslateError("");
     try {
@@ -182,6 +188,9 @@ const SessionTranscript = ({ session, onUpdate, readOnly = false }) => {
                     onChange={(e) => setSourceLang(e.target.value)}
                     className="rounded-md border border-dark-500 bg-dark-300 px-2 py-1 text-white"
                   >
+                    <option value="">
+                      from Auto{session.detectedLanguage ? ` (${session.detectedLanguage})` : ""}
+                    </option>
                     {languages.map((lang) => (
                       <option key={lang.code} value={lang.code}>
                         from {lang.name}

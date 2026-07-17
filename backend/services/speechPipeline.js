@@ -24,7 +24,7 @@ const runSpeechProcessing = async (sessionId, audioFilename, numSpeakers = 2) =>
     fs.writeFileSync(tempPlainPath, decrypted);
 
     wavPath = await convertToWav(tempPlainPath);
-    const { segments } = await transcribeSegments(wavPath);
+    const { segments, language } = await transcribeSegments(wavPath);
 
     // Diarization is best-effort: if the tooling isn't installed, or it
     // errors on this clip, everything just stays labeled "Speaker 1" rather
@@ -45,6 +45,7 @@ const runSpeechProcessing = async (sessionId, audioFilename, numSpeakers = 2) =>
       transcript: segments.map((s) => s.text).join(" ").trim(),
       segments: labeledSegments,
       transcriptStatus: "done",
+      detectedLanguage: language || "",
     });
   } catch (error) {
     console.error("runSpeechProcessing error:", error);

@@ -22,10 +22,29 @@ MODEL_NAME = "facebook/nllb-200-distilled-600M"
 PORT = int(os.environ.get("TRANSLATE_PORT", "5555"))
 
 # Short code (what the API/UI use) -> NLLB FLORES-200 code (what the model uses).
+# NLLB-200 covers 200 languages with ONE model, so widening this list costs
+# zero extra disk/RAM (Day 33) -- any language here translates to any other.
+# Whisper auto-detects the SPOKEN language with the same ISO codes, so the
+# transcript's detected language plugs straight in as the translate source.
 LANGUAGES = {
     "en": {"name": "English", "flores": "eng_Latn"},
     "hi": {"name": "Hindi", "flores": "hin_Deva"},
     "kn": {"name": "Kannada", "flores": "kan_Knda"},
+    "ta": {"name": "Tamil", "flores": "tam_Taml"},
+    "te": {"name": "Telugu", "flores": "tel_Telu"},
+    "ml": {"name": "Malayalam", "flores": "mal_Mlym"},
+    "mr": {"name": "Marathi", "flores": "mar_Deva"},
+    "bn": {"name": "Bengali", "flores": "ben_Beng"},
+    "gu": {"name": "Gujarati", "flores": "guj_Gujr"},
+    "pa": {"name": "Punjabi", "flores": "pan_Guru"},
+    "ur": {"name": "Urdu", "flores": "urd_Arab"},
+    "es": {"name": "Spanish", "flores": "spa_Latn"},
+    "fr": {"name": "French", "flores": "fra_Latn"},
+    "de": {"name": "German", "flores": "deu_Latn"},
+    "ar": {"name": "Arabic", "flores": "arb_Arab"},
+    "ru": {"name": "Russian", "flores": "rus_Cyrl"},
+    "zh": {"name": "Chinese", "flores": "zho_Hans"},
+    "ja": {"name": "Japanese", "flores": "jpn_Jpan"},
 }
 
 print(f"Loading {MODEL_NAME} (first run downloads ~2.4GB)...")

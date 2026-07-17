@@ -207,9 +207,9 @@ const updateSpeakerRoles = async (req, res) => {
 // session (and lands in the Excel export) rather than being display-only.
 const translateConversation = async (req, res) => {
   try {
-    const { source, target } = req.body;
-    if (!source || !target) {
-      return res.status(400).json({ message: "source and target language codes are required" });
+    const { target } = req.body;
+    if (!target) {
+      return res.status(400).json({ message: "target language code is required" });
     }
 
     const session = await ConversationSession.findOne({
@@ -217,6 +217,10 @@ const translateConversation = async (req, res) => {
       doctorId: req.auth.doctorId,
     });
     if (!session) return res.status(404).json({ message: "Session not found" });
+
+    // Source is optional: whisper auto-detected the spoken language when the
+    // recording was transcribed, so "translate to X" just works (Day 33).
+    const source = req.body.source || session.detectedLanguage || "en";
     if (!session.segments?.length) {
       return res.status(404).json({ message: "No transcript to translate yet" });
     }
