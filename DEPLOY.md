@@ -96,7 +96,7 @@ This is the #1 cause of "can't connect to the database" later, so do it first.
    ```
    (Render injects its own port; the number won't be 5000 — that's expected.)
 7. Copy the URL at the top of the service page. **Render often appends a random
-   suffix** if the plain name is taken, e.g. `https://carepulse-api-bs04.onrender.com`.
+   suffix** if the plain name is taken, e.g. `https://carepulse-api-ismz.onrender.com`.
    That full string is your backend base URL.
 
 **Test it:** open `https://<your-service>.onrender.com/api/health` in a browser tab.
@@ -137,7 +137,7 @@ the first build (or redeploy after).
 
    | Key | Value |
    |---|---|
-   | `VITE_API_URL` | your Render URL **+ `/api`**, e.g. `https://carepulse-api-bs04.onrender.com/api` |
+   | `VITE_API_URL` | your Render URL **+ `/api`**, e.g. `https://carepulse-api-ismz.onrender.com/api` |
    | `VITE_DEMO_MODE` | `true` |
 
    Double-check `VITE_API_URL` ends in `/api` with **no trailing slash** after it.
