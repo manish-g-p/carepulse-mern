@@ -259,6 +259,12 @@ push what's real for that day rather than padding it out.
       be the free upgrade path.
 - [x] Multi-speaker sessions — **Day 15**: 2-4 people in the room, "patient party"
       separated into its own speaker cluster.
+- [x] Faster transcription + auto-detect any-to-any translation — **Day 33**:
+      whisper passes run with 8 threads (was 4; ~25% faster, benchmarked).
+      Whisper's auto-detected spoken language is now stored per session
+      (`detectedLanguage`) and used as the default translate source, and the
+      NLLB language list widened from 3 to **18 languages, any→any** — zero
+      extra disk/RAM, since NLLB-200 is one 200-language model.
 - [x] Whisper model upgrade — **Day 32**: default model is now **small**
       (~466MB) rather than base. Measured on a 3-speaker test consultation:
       drug names ("omeprazole", "metformin") transcribe correctly where base

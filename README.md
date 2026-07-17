@@ -9,7 +9,7 @@
 CarePulse is a **doctor↔patient consultation recorder** for a healthcare app. A doctor
 records a consented conversation; CarePulse transcribes it, separates who said what,
 labels roles, pulls out medications/timing/symptoms, exports an Excel summary, and can
-translate the transcript (text, spoken, and live) across English / Hindi / Kannada.
+translate the transcript (text, spoken, and live) across **18 languages, any→any**, with the spoken language auto-detected (English, Hindi, Kannada, Tamil, Telugu, Malayalam, and more).
 Audio and transcript text are encrypted at rest, every access is audited, and patients
 get a read-only portal to their own transcripts.
 
@@ -27,7 +27,8 @@ budget (no paid AI APIs).
   encrypted** on disk.
 - Speech-to-text via self-hosted **whisper.cpp** (no per-minute API cost).
 - **Speaker diarization** (2–4 speakers, incl. a "patient party" for family in the room)
-  via MFCC-feature clustering (`librosa` + `scikit-learn`).
+  via neural **pyannote.audio**, with MFCC clustering (`librosa` + `scikit-learn`) as a
+  zero-setup fallback.
 - Doctor relabels generic `Speaker 1/2` → **Doctor / Patient / Patient Party** inline.
 - **Live transcript while recording** — primary transport is a **WebSocket**, with a 5s
   HTTP-poll fallback; the server transcribes incrementally (only new audio past a
@@ -38,7 +39,7 @@ budget (no paid AI APIs).
   chips and highlighted inline (doctor confirms; never auto-decides).
 - **Excel export** (`exceljs`) of the timestamped, role-labelled transcript.
 - **Translation** (text + spoken via Web Speech, + live) using self-hosted **NLLB-200**
-  (English / Hindi / Kannada); the UI hides itself gracefully when the translate server
+  (18 languages any→any, source auto-detected); the UI hides itself gracefully when the translate server
   is down.
 
 **Patient portal**
@@ -104,7 +105,7 @@ Full design notes, the free-stack table, and the day-by-day build log:
 | Backend | Node.js, Express, Mongoose (MongoDB Atlas), `ws` (WebSocket), Multer |
 | Auth | JWT (admin / doctor / patient roles), bcrypt |
 | Speech-to-text | self-hosted **whisper.cpp** (prebuilt binaries, no compiler needed) |
-| Diarization | MFCC clustering — `librosa` + `scikit-learn` (Python one-shot) |
+| Diarization | **pyannote.audio** (neural), MFCC clustering fallback (`librosa` + `scikit-learn`) |
 | Translation | self-hosted **NLLB-200** distilled 600M (Flask server) |
 | Async / infra | RabbitMQ (worker queue), nginx (API gateway), Docker Compose |
 | Crypto | AES-256-GCM (Node `crypto`) for audio + transcript text at rest |
