@@ -63,6 +63,15 @@ services:
     command: ["node", "patient-server.js"]
     env_file:
       - ./backend/.env
+    environment:
+      # openFDA via the host relay (scripts/openFdaProxy.js on :5556): on some
+      # networks Docker's NAT drops traffic to api.fda.gov while the host
+      # reaches it fine -- same host-detour pattern as the NLLB server. If the
+      # relay isn't running the pharmacy search degrades with a clear error;
+      # everything else is unaffected.
+      OPENFDA_BASE: http://host.docker.internal:5556
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       # Uploaded ID documents must survive container restarts and stay in the
       # same place host-run services use.

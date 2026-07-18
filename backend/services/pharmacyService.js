@@ -11,7 +11,9 @@
 // dropped to zero, 2.5-flash was closed to new keys) -- the alias survives
 // that churn.
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
-const OPENFDA_BASE = "https://api.fda.gov/drug/label.json";
+// Overridable for environments whose network can't reach api.fda.gov
+// directly (see scripts/openFdaProxy.js for the local-Docker case).
+const OPENFDA_BASE = process.env.OPENFDA_BASE || "https://api.fda.gov/drug/label.json";
 
 const isGeminiConfigured = () => Boolean(process.env.GEMINI_API_KEY);
 
