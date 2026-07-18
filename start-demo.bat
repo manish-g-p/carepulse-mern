@@ -37,6 +37,12 @@ REM     container image doesn't. Same queue either way.
 docker compose stop worker >nul 2>&1
 start "CarePulse speech worker" cmd /k "cd backend && npm run worker"
 
+REM --- 2c. openFDA relay on the HOST: Docker's NAT drops traffic to
+REM     api.fda.gov on some networks (containers time out, host is fine), so
+REM     the containerized patient-service calls openFDA through this relay
+REM     (OPENFDA_BASE in docker-compose.yml). Harmless when NAT works.
+start "CarePulse openFDA relay" cmd /k "cd backend && node scripts/openFdaProxy.js"
+
 REM --- 3. Frontend env for same-origin API through the gateway/tunnel ---
 if not exist frontend\.env.local (
   echo VITE_API_URL=/api> frontend\.env.local
