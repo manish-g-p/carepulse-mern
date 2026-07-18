@@ -91,8 +91,11 @@ const storeDocument = async (buffer, originalName, mimeType) => {
 const removeDocumentFile = async (doc) => {
   try {
     if (doc.storage === "cloudinary" && doc.publicId) {
+      // invalidate purges the CDN edge caches too -- without it a deleted
+      // medical document keeps serving from cache for up to an hour.
       await getCloudinary().uploader.destroy(doc.publicId, {
         resource_type: doc.resourceType || "image",
+        invalidate: true,
       });
     } else if (doc.storage === "local" && doc.localName) {
       fs.unlinkSync(path.join(localDir, doc.localName));
