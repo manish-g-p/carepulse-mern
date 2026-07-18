@@ -52,6 +52,24 @@ budget (no paid AI APIs).
   "for N days" → end date); doctor edits and confirms. Patients see them on their
   dashboard with a "due today" badge (in-app delivery).
 
+**Health Records module** (Day 34 — "Health records" from the doctor dashboard)
+- **Doctor directory** — personal add/edit/delete list of doctors with specialization,
+  contact and hospital details; search + specialization filter.
+- **Medical documents** — upload lab reports / prescriptions / bills / insurance,
+  stored on **Cloudinary** (free tier) with a local-disk fallback when unconfigured;
+  preview, download, delete (delete also purges the CDN cache).
+- **Visit history** — record visits (date, reason, diagnosis, treatment notes) linked
+  to a directory doctor, with documents attached.
+- **Appointment scheduling** — book with a directory doctor, mark completed, and get
+  **email reminders**: an automated daily **9 AM** sweep (Gmail SMTP app password,
+  free) plus a manual "send now" trigger; each appointment is reminded exactly once.
+- **AI pharmacy assistant** — upload a prescription image and extract medication
+  names via the **Gemini API free tier** (suggestions the user confirms); search
+  drug details (purpose, dosage, warnings, side effects) and find **generic
+  alternatives** from the public **openFDA** database (no key required).
+- **Overview dashboard** — counts, upcoming appointments, recent visits; plus
+  profile management (name, specialization, password change).
+
 **Security / PHI-grade (still free)**
 - **RBAC** across three roles (`admin` / `doctor` / `patient`) via JWT; a doctor sees only
   their own sessions, a patient only their own.

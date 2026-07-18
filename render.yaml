@@ -32,3 +32,17 @@ services:
       # One database for the combined instance (the split uses four).
       - key: COMBINED_DB
         value: carepulse
+      # --- Health Records module (all optional free tiers; features degrade
+      # gracefully when unset -- see .env.example). Safe to leave blank.
+      # Gemini free tier: prescription-image parsing in the pharmacy assistant.
+      - key: GEMINI_API_KEY
+        sync: false
+      # Cloudinary free tier: cloudinary://<api_key>:<api_secret>@<cloud_name>.
+      # Unset = local-disk fallback (ephemeral on Render -- lost on redeploy).
+      - key: CLOUDINARY_URL
+        sync: false
+      # Gmail app password for the daily 9 AM appointment reminder emails.
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false

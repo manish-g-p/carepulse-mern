@@ -82,8 +82,12 @@ This is the #1 cause of "can't connect to the database" later, so do it first.
    | `ADMIN_PASSKEY` | your chosen passkey |
    | `AUDIO_ENCRYPTION_KEY` | the 64-hex value from Step 0 |
    | `CLIENT_ORIGIN` | **leave blank for now** — set in Step 4 |
+   | `GEMINI_API_KEY` | *(optional)* Gemini free-tier key — enables prescription-image parsing |
+   | `CLOUDINARY_URL` | *(optional)* `cloudinary://<key>:<secret>@<cloud>` — persistent document storage (unset = local disk, which Render wipes on redeploy) |
+   | `SMTP_USER` / `SMTP_PASS` | *(optional)* Gmail address + app password — daily 9 AM appointment reminder emails |
 
-   (`COMBINED_DB` is already `carepulse` from the blueprint — leave it.)
+   (`COMBINED_DB` is already `carepulse` from the blueprint — leave it. The optional
+   Health Records vars can be blank; each feature hides or falls back gracefully.)
 5. **Apply**. Render clones → `npm ci` → `npm start`. This first sync lands you on the
    **Blueprint** page; when it shows a green **"Create web service carepulse-api"**,
    click that link (or left sidebar **Resources → carepulse-api**) to open the actual

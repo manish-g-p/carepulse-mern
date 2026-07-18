@@ -158,6 +158,8 @@ conversation-service → NLLB translate server HOST :5555
 | 31 | `b1efebf` | **Neural diarization (pyannote.audio)** — real-conversation accuracy; MFCC fallback kept |
 | 32 | `c58dd33` | **Whisper `small` default** — drug names fixed (measured A/B: meds extracted 0/3 → 2/3) |
 | 33 | `346fa26` | **8-thread whisper (~25% faster) + auto-detected any-to-any translation (3 → 18 languages, zero extra download)** |
+| 34 | `27866cb` | **Health Records module** — doctor directory, documents (Cloudinary/local), visits, appointment email reminders (daily 9 AM), AI pharmacy assistant (Gemini + openFDA), overview dashboard, profile management |
+| — | `a37eeb2` | CDN cache purge on Cloudinary document delete (`invalidate: true`) |
 
 **Verification discipline:** every day was verified end-to-end (usually through
 the gateway with synthetic multi-voice clips), test data was prefix-tagged and
@@ -280,7 +282,7 @@ Translation server (optional):
 
 ---
 
-## 8b. Day 34 — Health Records module (built 2026-07-18, uncommitted)
+## 8b. Day 34 — Health Records module (2026-07-18, committed `27866cb` + `a37eeb2`)
 
 A patient-record layer on top of the consultation recorder, reachable from the
 doctor dashboard ("Health records" button) and gated by the same doctor JWT.
@@ -304,6 +306,22 @@ every feature degrades gracefully when its key is unset.
   `.env.example`): `CLOUDINARY_*`, `GEMINI_API_KEY`, `SMTP_USER/PASS`, `OPENFDA_API_KEY`.
 - Verified end-to-end on an isolated test DB (`carepulse_feature_test`,
   dropped afterward) + a real-browser UI pass; frontend `npm run build` clean.
+
+**All three integrations verified live with real keys (2026-07-18):**
+- **Gemini**: model churn bit twice — `gemini-2.0-flash` free quota is now 0 and
+  `gemini-2.5-flash` is closed to new keys. Default is **`gemini-flash-latest`**
+  (Google's rolling alias — survives deprecations). Parse endpoint returns 200.
+- **Cloudinary**: upload → public CDN URL → delete verified on the real account.
+  Gotcha: the dashboard "API environment variable" must be pasted whole
+  (`cloudinary://key:secret@cloud`) — the bare API key or the placeholder
+  template fails; a malformed URL now logs a warning and falls back to local
+  disk instead of 500ing. Deletes pass `invalidate: true` so the CDN cache is
+  purged too (a deleted medical doc must not keep serving from edge cache).
+- **Email**: Gmail app password (requires 2-Step Verification first —
+  myaccount.google.com/apppasswords 404s without it). Real reminder sent
+  (`{checked:1, sent:1}`), second sweep `{checked:0}` — once-only confirmed.
+- Render env vars for the hosted demo: `GEMINI_API_KEY`, `CLOUDINARY_URL`,
+  `SMTP_USER`, `SMTP_PASS` (all optional, now in render.yaml + DEPLOY.md).
 
 ## 9. Remaining ideas (optional, none blocking)
 
