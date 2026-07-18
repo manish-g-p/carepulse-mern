@@ -23,6 +23,13 @@ const patientRoutes = require("./routes/patientRoutes");
 const appointmentRoutes = require("./routes/appointmentRoutes");
 const conversationRoutes = require("./routes/conversationRoutes");
 const reminderRoutes = require("./routes/reminderRoutes");
+const doctorContactRoutes = require("./routes/doctorContactRoutes");
+const documentRoutes = require("./routes/documentRoutes");
+const visitRoutes = require("./routes/visitRoutes");
+const healthAppointmentRoutes = require("./routes/healthAppointmentRoutes");
+const pharmacyRoutes = require("./routes/pharmacyRoutes");
+const overviewRoutes = require("./routes/overviewRoutes");
+const { scheduleDailyReminders } = require("./services/appointmentReminders");
 const { attachLiveSocket } = require("./services/liveSocket");
 const { scheduleRetention } = require("./services/retentionService");
 const { sweepConversations } = require("./services/conversationRetention");
@@ -55,6 +62,14 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/reminders", reminderRoutes);
 app.use("/api/appointments", appointmentRoutes);
+// Health Records module (doctor directory, documents, visits, scheduled
+// appointments, pharmacy assistant, overview).
+app.use("/api/doctors", doctorContactRoutes);
+app.use("/api/documents", documentRoutes);
+app.use("/api/visits", visitRoutes);
+app.use("/api/health-appointments", healthAppointmentRoutes);
+app.use("/api/pharmacy", pharmacyRoutes);
+app.use("/api/overview", overviewRoutes);
 app.use("/api", patientRoutes); // last: its "/api/*" is the broadest
 
 app.use((req, res) => res.status(404).json({ message: "Not found" }));
@@ -75,3 +90,6 @@ attachLiveSocket(server);
 // Retention stays opt-in via RETENTION_DAYS (disabled by default).
 scheduleRetention("conversation-sessions", sweepConversations);
 scheduleRetention("reminders", sweepReminders);
+
+// Daily 9 AM appointment reminder emails (no-ops politely without SMTP creds).
+scheduleDailyReminders("combined-server");

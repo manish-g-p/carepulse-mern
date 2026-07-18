@@ -13,8 +13,26 @@ import PortalLogin from "./pages/PortalLogin.jsx";
 import PortalActivate from "./pages/PortalActivate.jsx";
 import PortalDashboard from "./pages/PortalDashboard.jsx";
 import PortalSessionView from "./pages/PortalSessionView.jsx";
+import Overview from "./pages/Overview.jsx";
+import MyDoctors from "./pages/MyDoctors.jsx";
+import Documents from "./pages/Documents.jsx";
+import Visits from "./pages/Visits.jsx";
+import HealthAppointments from "./pages/HealthAppointments.jsx";
+import Pharmacy from "./pages/Pharmacy.jsx";
+import Profile from "./pages/Profile.jsx";
 import RequireDoctor from "./components/RequireDoctor.jsx";
 import RequirePatient from "./components/RequirePatient.jsx";
+
+// Health Records module pages, all doctor-authenticated.
+const recordsRoutes = [
+  ["/doctor/overview", <Overview />],
+  ["/doctor/doctors", <MyDoctors />],
+  ["/doctor/documents", <Documents />],
+  ["/doctor/visits", <Visits />],
+  ["/doctor/appointments", <HealthAppointments />],
+  ["/doctor/pharmacy", <Pharmacy />],
+  ["/doctor/profile", <Profile />],
+];
 
 function App() {
   return (
@@ -50,6 +68,9 @@ function App() {
           </RequireDoctor>
         }
       />
+      {recordsRoutes.map(([path, element]) => (
+        <Route key={path} path={path} element={<RequireDoctor>{element}</RequireDoctor>} />
+      ))}
       <Route path="/portal" element={<PortalLogin />} />
       <Route path="/portal/activate" element={<PortalActivate />} />
       <Route

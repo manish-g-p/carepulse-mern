@@ -280,6 +280,31 @@ Translation server (optional):
 
 ---
 
+## 8b. Day 34 — Health Records module (built 2026-07-18, uncommitted)
+
+A patient-record layer on top of the consultation recorder, reachable from the
+doctor dashboard ("Health records" button) and gated by the same doctor JWT.
+Everything stays $0: Cloudinary/Gemini/Gmail-SMTP are optional free tiers and
+every feature degrades gracefully when its key is unset.
+
+| Feature | Backend | Frontend |
+|---|---|---|
+| Profile management (name/specialization/password) | `GET/PUT /api/auth/doctor/me` | `/doctor/profile` |
+| Personal doctor directory (add/edit/delete, search, specialization filter) | `/api/doctors` (`DoctorContact` model) | `/doctor/doctors` |
+| Medical documents (5 categories, upload/preview/download/delete; Cloudinary or local-disk fallback) | `/api/documents` (`MedicalDocument`) | `/doctor/documents` |
+| Visit history (linked doctor, diagnosis, treatment notes, attached documents) | `/api/visits` (`Visit`) | `/doctor/visits` |
+| Appointment scheduling (reminders, daily 9 AM email sweep + manual trigger, mark completed) | `/api/health-appointments` (`HealthAppointment`) | `/doctor/appointments` |
+| AI pharmacy assistant (Gemini prescription parsing; openFDA drug info + generic alternatives, incl. paracetamol→acetaminophen-style aliases) | `/api/pharmacy` | `/doctor/pharmacy` |
+| Dashboard (counts, upcoming appointments, recent visits) | `/api/overview` | `/doctor/overview` |
+
+- Owned by the patient-service (mounted in `patient-server.js` AND
+  `combined-server.js`); records scoped by `ownerId` from the JWT; visit/
+  appointment references are ownership-checked server-side.
+- New deps: `cloudinary`, `nodemailer`. New optional env (documented in
+  `.env.example`): `CLOUDINARY_*`, `GEMINI_API_KEY`, `SMTP_USER/PASS`, `OPENFDA_API_KEY`.
+- Verified end-to-end on an isolated test DB (`carepulse_feature_test`,
+  dropped afterward) + a real-browser UI pass; frontend `npm run build` clean.
+
 ## 9. Remaining ideas (optional, none blocking)
 
 - TLS checkbox (hosting-time; the tunnel already serves HTTPS)

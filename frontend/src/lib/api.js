@@ -246,4 +246,150 @@ export const downloadConversationExcel = async (sessionId, patientName) => {
   URL.revokeObjectURL(url);
 };
 
+// ---------- Health Records module ----------
+
+// Profile management.
+export const getMyProfile = async () => {
+  const { data } = await api.get("/auth/doctor/me");
+  return data;
+};
+
+export const updateMyProfile = async (payload) => {
+  const { data } = await api.put("/auth/doctor/me", payload);
+  return data;
+};
+
+// Personal doctor directory.
+export const listMyDoctors = async (params = {}) => {
+  const { data } = await api.get("/doctors", { params });
+  return data;
+};
+
+export const addMyDoctor = async (doctor) => {
+  const { data } = await api.post("/doctors", doctor);
+  return data;
+};
+
+export const updateMyDoctor = async (id, doctor) => {
+  const { data } = await api.put(`/doctors/${id}`, doctor);
+  return data;
+};
+
+export const deleteMyDoctor = async (id) => {
+  const { data } = await api.delete(`/doctors/${id}`);
+  return data;
+};
+
+// Medical documents.
+export const listDocuments = async (category) => {
+  const { data } = await api.get("/documents", { params: category ? { category } : {} });
+  return data;
+};
+
+export const uploadDocument = async (file, title, category) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("title", title);
+  formData.append("category", category);
+  const { data } = await api.post("/documents", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+};
+
+export const deleteDocument = async (id) => {
+  const { data } = await api.delete(`/documents/${id}`);
+  return data;
+};
+
+// Locally-stored documents have a root-relative /uploads URL that must go
+// through the API host; Cloudinary URLs are already absolute.
+export const getDocumentUrl = (doc) =>
+  doc.url.startsWith("http") ? doc.url : `${API_BASE_URL.replace(/\/api$/, "")}${doc.url}`;
+
+// Medical visits.
+export const listVisits = async () => {
+  const { data } = await api.get("/visits");
+  return data;
+};
+
+export const createVisit = async (visit) => {
+  const { data } = await api.post("/visits", visit);
+  return data;
+};
+
+export const updateVisit = async (id, visit) => {
+  const { data } = await api.put(`/visits/${id}`, visit);
+  return data;
+};
+
+export const deleteVisit = async (id) => {
+  const { data } = await api.delete(`/visits/${id}`);
+  return data;
+};
+
+// Scheduled appointments (with email reminders).
+export const listHealthAppointments = async (upcomingOnly = false) => {
+  const { data } = await api.get("/health-appointments", {
+    params: upcomingOnly ? { upcoming: 1 } : {},
+  });
+  return data;
+};
+
+export const createHealthAppointment = async (appointment) => {
+  const { data } = await api.post("/health-appointments", appointment);
+  return data;
+};
+
+export const updateHealthAppointment = async (id, payload) => {
+  const { data } = await api.put(`/health-appointments/${id}`, payload);
+  return data;
+};
+
+export const completeHealthAppointment = async (id) => {
+  const { data } = await api.put(`/health-appointments/${id}/complete`);
+  return data;
+};
+
+export const deleteHealthAppointment = async (id) => {
+  const { data } = await api.delete(`/health-appointments/${id}`);
+  return data;
+};
+
+export const runAppointmentReminders = async () => {
+  const { data } = await api.post("/health-appointments/reminders/run");
+  return data;
+};
+
+// AI pharmacy assistant.
+export const getPharmacyStatus = async () => {
+  const { data } = await api.get("/pharmacy/status");
+  return data;
+};
+
+export const parsePrescription = async (imageFile) => {
+  const formData = new FormData();
+  formData.append("image", imageFile);
+  const { data } = await api.post("/pharmacy/prescriptions/parse", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+};
+
+export const searchDrugs = async (q) => {
+  const { data } = await api.get("/pharmacy/drugs", { params: { q } });
+  return data;
+};
+
+export const getDrugAlternatives = async (name) => {
+  const { data } = await api.get("/pharmacy/drugs/alternatives", { params: { name } });
+  return data;
+};
+
+// Dashboard overview.
+export const getOverview = async () => {
+  const { data } = await api.get("/overview");
+  return data;
+};
+
 export default api;

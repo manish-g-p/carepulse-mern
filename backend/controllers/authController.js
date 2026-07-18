@@ -153,4 +153,71 @@ const patientLogin = async (req, res) => {
   }
 };
 
-module.exports = { adminLogin, doctorRegister, doctorLogin, patientActivate, patientLogin };
+// GET /api/auth/doctor/me -- the signed-in account's profile.
+const getDoctorProfile = async (req, res) => {
+  try {
+    const doctor = await Doctor.findById(req.auth.doctorId).select("-passwordHash");
+    if (!doctor) return res.status(404).json({ message: "Account not found" });
+    res.json({
+      id: doctor._id,
+      name: doctor.name,
+      email: doctor.email,
+      specialization: doctor.specialization,
+      createdAt: doctor.createdAt,
+    });
+  } catch (error) {
+    console.error("getDoctorProfile error:", error);
+    res.status(500).json({ message: "Failed to load profile" });
+  }
+};
+
+// PUT /api/auth/doctor/me  { name?, specialization?, currentPassword?, newPassword? }
+// Changing the password requires proving the current one; email is fixed
+// (it's the login identifier). Returns a fresh token so the name embedded
+// in the JWT stays in sync after a rename.
+const updateDoctorProfile = async (req, res) => {
+  try {
+    const doctor = await Doctor.findById(req.auth.doctorId);
+    if (!doctor) return res.status(404).json({ message: "Account not found" });
+
+    const { name, specialization, currentPassword, newPassword } = req.body;
+    if (name !== undefined) {
+      if (!String(name).trim()) return res.status(400).json({ message: "Name cannot be empty" });
+      doctor.name = String(name).trim();
+    }
+    if (specialization !== undefined) doctor.specialization = String(specialization).trim();
+
+    if (newPassword) {
+      if (newPassword.length < 8) {
+        return res.status(400).json({ message: "New password must be at least 8 characters" });
+      }
+      const valid = currentPassword && (await doctor.comparePassword(currentPassword));
+      if (!valid) return res.status(401).json({ message: "Current password is incorrect" });
+      doctor.passwordHash = await bcrypt.hash(newPassword, 10);
+    }
+
+    await doctor.save();
+    res.json({
+      token: signDoctorToken(doctor),
+      doctor: {
+        id: doctor._id,
+        name: doctor.name,
+        email: doctor.email,
+        specialization: doctor.specialization,
+      },
+    });
+  } catch (error) {
+    console.error("updateDoctorProfile error:", error);
+    res.status(500).json({ message: "Failed to update profile" });
+  }
+};
+
+module.exports = {
+  adminLogin,
+  doctorRegister,
+  doctorLogin,
+  patientActivate,
+  patientLogin,
+  getDoctorProfile,
+  updateDoctorProfile,
+};
